@@ -86,3909 +86,2240 @@ if ($ModulesToInstallAndImport.Count -gt 0) {
 
 <#
     .SYNOPSIS
-        Use PowerShell to Update PowerShell Core. If you're on Windows, this function can be used to do the initial
-        install of PowerShell Core. On any other OS, a version of PowerShell Core (at least 6.0.0-beta) must already
-        be installed and used to run this function.
+        Clone all of your Public or Private repos. Clone all of someone else's Public repos.
 
     .DESCRIPTION
-        See SYNOPSIS
+        See Synopsis.
 
-    .PARAMETER RemoteOSGuess
-        This parameter is OPTIONAL.
-        
-        This parameter takes a string (either "Windows" or "Linux") that represents the type of platform you anticipate the
-        Remote Host is running. The default value for this parameter is "Windows".
+    .PARAMETER GitRepoParentDirectory
+        TODO
+    
+    .PARAMETER GitHubUserName
+        TODO
 
-        IMPORTANT NOTE: If you specify "Linux" and it turns out that the Remote Host is running Windows, this function will fail.
-        So, if you're not sure, leave the default value "Windows".
+    .PARAMETER GitHubEmail
+        TODO
 
-    .PARAMETER RemoteHostNameOrIP
-        This parameter is MANDATORY.
+    .PARAMETER PersonalAccessToken
+        TODO
 
-        This parameter takes a string that represents the DNS-resolvable HostName/FQDN or IPv4 Address of the target Remote Host
+    .PARAMETER RemoteGitRepoName
+        TODO
 
-    .PARAMETER LocalUserName
-        This parameter is MANDATORY for the Parameter Set 'Local'.
+    .PARAMETER CloneAllPublicRepos
+        TODO
 
-        This parameter takes a string that represents the Local User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <RemoteHostName>\<UserName>
+    .PARAMETER CloneAllPrivateRepos
+        TODO
 
-    .Parameter DomainUserName
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a string that represents the Domain User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <DomainShortName>\<UserName>
-
-    .Parameter LocalPasswordSS
-        This parameter is OPTIONAL. (However, either -LocalPasswordSS or -KeyFilePath is mandatory for the 'Domain' Parameter Set)
-
-        This parameter takes a securestring that represents the password for the -LocalUserName you are using to ssh into the
-        Remote Host.
-
-    .Parameter DomainPasswordSS
-        This parameter is OPTIONAL. (However, either -DomainPasswordSS or -KeyFilePath is mandatory for the 'Domain' Parameter Set)
-
-        This parameter takes a securestring that represents the password for the -DomainUserName you are using to ssh into the
-        Remote Host.
-
-    .PARAMETER KeyFilePath
-        This parameter is OPTIONAL. (However, either -DomainPasswordSS, -LocalPasswordSS, or -KeyFilePath is required)
-
-        This parameter takes a string that represents the full path to the Key File you are using to ssh into the Remote Host.
-        Use this parameter instead of -LocalPasswordSS or -DomainPasswordSS.
-
-    .PARAMETER OS
-        This parameter is OPTIONAL.
-
-        By default, this function probes the Remote Host to determine the OS running on the Remote Host. If you know in advance
-        the OS running on the Remote Host, or if the Get-SSHProbe function returns incorrect information, use this parameter
-        to specify one of the following values:
-            "Ubuntu1404","Ubuntu1604","Ubuntu1804","Ubuntu1810","Debian8","Debian9","CentOS7","RHEL7","OpenSUSE423","Fedora","Raspbian"
-
-    .PARAMETER UsePackageManagement
-        This parameter is OPTIONAL, however, it has a default value of $True
-
-        This parameter is a switch. If used (default behavior), the appropriate Package Management system on the Remote Host
-        will be used to install PowerShell Core.
-
-        If explicitly set to $False, the appropriate PowerShell Core installation package will be downloaded directly from GitHub
-        and installed on the Remote Host.
-
-    .PARAMETER ConfigurePSRemoting
-        This parameter is OPTIONAL.
-
-        This parameter is a switch. If used, in addition to installing PowerShell Core, sshd_config will be modified in order to enable
-        PSRemoting using PowerShell Core.
-
+    .PARAMETER CloneAllRepos
+        TODO
+    
     .EXAMPLE
-        # Minimal parameters...
+        # Launch PowerShell and...
 
-        $BootstrapPwshSplatParams = @{
-            RemoteHostNameOrIP      = "zerowin16sshb"
-            DomainUserNameSS        = "zero\zeroadmin"
-            DomainPasswordSS        = $(Read-Host -Prompt "Enter password" -AsSecureString)
+        $CloneRepoParams = @{
+            GitRepoParentDirectory = "$HOME\Documents\GitRepos"
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@mykolab.com"
+            PersonalAccessToken = "2345678dsfghjk4567890"
+            CloneAllRepos = $True
         }
-        Bootstrap-PowerShellCore @BootstrapPwshSplatParams
 
-    .EXAMPLE
-        # Install pwsh AND configure sshd_config for PSRemoting...
+        Clone-GitRepo @CloneRepoParams
 
-        $BootstrapPwshSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            LocalPasswordSS         = $(Read-Host -Prompt "Enter password" -AsSecureString)
-            ConfigurePSRemoting     = $True
-        }
-        Bootstrap-PowerShellCore @BootstrapPwshSplatParams
-
-    .EXAMPLE
-        # Instead of using the Remote Host's Package Management System (which is default behavior),
-        # download and install the appropriate pwsh package directly from GitHub
-
-        $BootstrapPwshSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            LocalPasswordSS         = $(Read-Host -Prompt "Enter password" -AsSecureString)
-            UsePackageManagement    = $False
-        }
-        Bootstrap-PowerShellCore @BootstrapPwshSplatParams
-        
 #>
-function Bootstrap-PowerShellCore {
+function Clone-GitRepo {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$False)]
-        [ValidateSet("Windows","Linux")]
-        [string]$RemoteOSGuess = "Windows",
+        $GitRepoParentDirectory = $(Read-Host -Prompt "Please enter the full path to the directory that will contain the cloned Git repository."),
 
-        [Parameter(Mandatory=$True)]
-        [string]$RemoteHostNameOrIP,
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubUserName = $(Read-Host -Prompt "Please enter the GitHub UserName associated with the repo you would like to clone"),
 
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <RemoteHostName>\<User>
-        [string]$LocalUserName,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Domain'    
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string]$DomainUserName,
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubEmail,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Local'    
+            ParameterSetName='PrivateRepos'
         )]
-        [securestring]$LocalPasswordSS,
+        $PersonalAccessToken,
+
+        [Parameter(Mandatory=$False)]
+        $RemoteGitRepoName,
+
+        [Parameter(Mandatory=$False)]
+        [switch]$CloneAllPublicRepos,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Domain'
+            ParameterSetName='PrivateRepos'
         )]
-        [securestring]$DomainPasswordSS,
+        [switch]$CloneAllPrivateRepos,
 
         [Parameter(Mandatory=$False)]
-        [string]$KeyFilePath,
-
-        [Parameter(Mandatory=$False)]
-        [ValidateSet("Windows","MacOS","Ubuntu1404","Ubuntu1604","Ubuntu1804","Ubuntu1810","Debian8","Debian9","CentOS7","RHEL7","OpenSUSE423","Fedora","Arch","Raspbian")]
-        [string]$OS,
-
-        [Parameter(Mandatory=$False)]
-        [switch]$UsePackageManagement = $True,
-
-        [Parameter(Mandatory=$False)]
-        [switch]$ConfigurePSRemoting
+        [switch]$CloneAllRepos
     )
 
-    #region >> Prep
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep #####
+    if ($PersonalAccessToken) {
+        if ($PersonalAccessToken.GetType().FullName -eq "System.Security.SecureString") {
+            # Convert SecureString to PlainText
+            $PersonalAccessToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+        }
+    }
+    
+    # Make sure we have access to the git command
+    if ($env:github_shell -ne $true -or !$(Get-Command git -ErrorAction SilentlyContinue)) {
+        if (!$GitHubUserName) {
+            $GitHubUserName = Read-Host -Prompt "Please enter your GitHub UserName"
+        }
+        if (!$GitHubEmail) {
+            $GitHubEmail = Read-Host -Prompt "Please enter the GitHub Email address associated with $GitHubuserName"
+        }
+        $global:FunctionResult = "0"
+        Configure-GitEnvironment -GitHubUserName $GitHubUserName -GitHubEmail $GitHubEmail
+        if ($global:FunctionResult -eq "1") {
+            Write-Verbose "The Configure-GitEnvironment function failed! Halting!"
+            Write-Error "The Configure-GitEnvironment function failed! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
 
-    if (!$(GetElevation)) {
-        Write-Error "Please run PowerShell with elevated privileges and try again. Halting!"
+    if (!$(Test-Path $GitRepoParentDirectory)) {
+        Write-Verbose "The path $GitRepoParentDirectory was not found! Halting!"
+        Write-Error "The path $GitRepoParentDirectory was not found! Halting!"
         $global:FunctionResult = "1"
         return
     }
 
-    if (!$(Get-Command ssh -ErrorAction SilentlyContinue)) {
-        Write-Error "Unable to find 'ssh'! Please make sure it is installed and part of your Environment/System Path! Halting!"
-        $global:FunctionResult = "1"
-        return
+    if ($CloneAllRepos -and !$PersonalAccessToken) {
+        Write-Host "Please note that if you would like to clone both Public AND Private repos, you must use the -PersonalAccessToken parameter with the -CloneAllRepos switch."
     }
 
-    if ($KeyFilePath) {
-        if (!$(Test-Path $KeyFilePath)) {
-            Write-Error "Unable to find KeyFilePath '$KeyFilePath'! Halting!"
+    $BoundParamsArrayOfKVP = $PSBoundParameters.GetEnumerator() | foreach {$_}
+
+    $PrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "PersonalAccessToken|CloneAllPrivateRepos|CloneAllRepos"
+    $NoPrivateReposParamSetCheck = $($BoundParamsArrayOfKVP.Key -join "") -match "CloneAllPublicRepos"
+    if ($RemoteGitRepoName -and !$PersonalAccessToken) {
+        $NoPrivateReposParamSetCheck = $true
+    }
+
+    # For Params that are part of the PrivateRepos Parameter Set...
+    if ($PrivateReposParamSetCheck -eq $true) {
+        if ($($CloneAllPrivateRepos -and $CloneAllRepos) -or 
+        $($CloneAllPrivateRepos -and $RemoteGitRepoName) -or
+        $($CloneAllPrivateRepos -and $CloneAllPublicRepos) -or 
+        $($CloneAllRepos -and $RemoteGitRepoName) -or
+        $($CloneAllRepos -and $CloneAllPublicRepos) -or
+        $($CloneAllPublicRepos -and $RemoteGitRepoName) )  {
+            Write-Verbose "Please use *either* -CloneAllRepos *or* -CloneAllPrivateRepos *or* -RemoteGitRepoName *or* -CloneAllPublicRepos! Halting!"
+            Write-Error "Please use *either* -CloneAllRepos *or* -CloneAllPrivateRepos *or* -RemoteGitRepoName *or* -CloneAllPublicRepos! Halting!"
+            $global:FunctionResult = "1"
+            return
+        }
+    }
+    # For Params that are part of the NoPrivateRepos Parameter Set...
+    if ($NoPrivateReposParamSetCheck -eq $true) {
+        if ($CloneAllPublicRepos -and $RemoteGitRepoName) {
+            Write-Verbose "Please use *either* -CloneAllPublicRepos *or* -RemoteGitRepoName! Halting!"
+            Write-Error "Please use *either* -CloneAllPublicRepos *or* -RemoteGitRepoName! Halting!"
             $global:FunctionResult = "1"
             return
         }
     }
 
-    try {
-        $RemoteHostNetworkInfo = ResolveHost -HostNameOrIP $RemoteHostNameOrIP -ErrorAction Stop
-    }
-    catch {
-        Write-Error $_
-        Write-Error "Unable to resolve '$RemoteHostNameOrIP'! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
+    ##### END Variable/Parameter Transforms and PreRun Prep #####
 
-    if ($KeyFilePath  -and !$($LocalPasswordSS -or $DomainPasswordSS)) {
-        $WrnMsg = "If $RemoteHostNameOrIP is running Linux, you will be prompted for a sudo password! If you would like to avoid this prompt, " +
-        "please run this function again and include either the -LocalPasswordSS or -DomainPasswordSS parameter."
-    }
 
-    if ($LocalUserName) {
-        if ($($LocalUserName -split "\\")[0] -ne $RemoteHostNetworkInfo.HostName) {
-            $ErrMsg = "The HostName indicated by -LocalUserName (i.e. $($($LocalUserName -split "\\")[0]) is not the same as " +
-            "the HostName as determined by network resolution (i.e. $($RemoteHostNetworkInfo.HostName))! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if ($DomainUserName) {
-        if ($($DomainUserName -split "\\")[0] -ne $($RemoteHostNetworkInfo.Domain -split "\.")[0]) {
-            $ErrMsg = "The Domain indicated by -DomainUserName (i.e. '$($($DomainUserName -split "\\")[0])') is not the same as " +
-            "the Domain as determined by network resolution (i.e. '$($($RemoteHostNetworkInfo.Domain -split "\.")[0])')! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
+    ##### BEGIN Main Body #####
 
-    # Create PSCustomObjects with all applicable installation info
-    Write-Host "Determining latest PowerShell Core Packages..."
-    $ReleaseInfo = Invoke-RestMethod https://api.github.com/repos/PowerShell/PowerShell/releases/latest
-    $PSCorePackageUrls = $ReleaseInfo.assets.browser_download_url
-    $PSCorePackageNames = $ReleaseInfo.assets.name
-    Write-Host "Determined latest PowerShell Core Packages."
-    <#
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell-6.1.0-1.rhel.7.x86_64.rpm
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell-6.1.0-linux-arm32.tar.gz
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell-6.1.0-linux-musl-x64.tar.gz
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell-6.1.0-linux-x64.tar.gz
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell-6.1.0-osx-x64.pkg
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell-6.1.0-osx-x64.tar.gz
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/PowerShell-6.1.0-win-arm32.zip
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/PowerShell-6.1.0-win-arm64.zip
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/PowerShell-6.1.0-win-x64.msi
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/PowerShell-6.1.0-win-x64.zip
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/PowerShell-6.1.0-win-x86.msi
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/PowerShell-6.1.0-win-x86.zip
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell_6.1.0-1.debian.8_amd64.deb
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell_6.1.0-1.debian.9_amd64.deb
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell_6.1.0-1.ubuntu.14.04_amd64.deb
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell_6.1.0-1.ubuntu.16.04_amd64.deb
-        https://github.com/PowerShell/PowerShell/releases/download/v6.1.0/powershell_6.1.0-1.ubuntu.18.04_amd64.deb
-    #>
-    switch ($PSCorePackageUrls) {
-        {$_ -match "ubuntu" -and $_ -match "14\.04" -and $_ -match "\.deb"} {
-            $Ubuntu1404PackageUrl = $_
-            $Ubuntu1404PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "ubuntu" -and $_ -match "16\.04" -and $_ -match "\.deb"} {
-            $Ubuntu1604PackageUrl = $ArchPackageUrl = $_
-            $Ubuntu1604PackageName = $ArchPackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "ubuntu" -and $_ -match "18\.04" -and $_ -match "\.deb"} {
-            $Ubuntu1804PackageUrl = $_
-            $Ubuntu1804PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "debian\.8" -and $_ -match "\.deb"} {
-            $Debian8PackageUrl = $_
-            $Debian8PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "debian\.9" -and $_ -match "\.deb"} {
-            $Debian9PackageUrl = $_
-            $Debian9PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "rhel\.7" -and $_ -match "\.rpm"} {
-            $CentOS7PackageUrl = $RHEL7PackageUrl = $OpenSUSE423PackageUrl = $Fedora27PackageUrl = $Fedora28PackageUrl = $_
-            $CentOS7PackageName = $RHEL7PackageName = $OpenSUSE423PackageName = $Fedora27PackageName = $Fedora28PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "osx" -and $_ -match "\.pkg"} {
-            $MacOSPackageUrl = $_
-            $MacOSPackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "win" -and $_ -match "x64" -and $_ -match "\.msi"} {
-            $Win64PackageUrl = $_
-            $Win64PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "win" -and $_ -match "x86" -and $_ -match "\.msi"} {
-            $Win32PackageUrl = $_
-            $Win32PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "win" -and $_ -match "arm64" -and $_ -match "\.zip"} {
-            $WinArm64PackageUrl = $_
-            $WinArm64PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "win" -and $_ -match "arm32" -and $_ -match "\.zip"} {
-            $WinArm32PackageUrl = $_
-            $WinArm32PackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "linux" -and $_ -match "x64" -and $_ -match "\.tar\.gz"} {
-            $LinuxGenericPackageUrl = $_
-            $LinuxGenericPackageName = $($_ -split '/')[-1]
-        }
-        {$_ -match "linux" -and $_ -match "arm32" -and $_ -match "\.tar\.gz"} {
-            $LinuxGenericArmPackageUrl = $RaspbianArmPackageUrl = $_
-            $LinuxGenericArmPackageName = $RaspbianArmPackageName = $($_ -split '/')[-1]
-        }
-    }
+    Push-Location $GitRepoParentDirectory
 
-    # Windows Install Scripts
-    # $Windows is a PSCustomObject containing properties: PackageManagerInstallScript, ManualInstallScript, UninstallScript, ConfigurePwshRemotingScript
-    $Windows = GetWindowsScripts -Win64PackageUrl $Win64PackageUrl -Win64PackageName $Win64PackageName
-    
-    # Ubuntu 14.04 Install Info
-    $Ubuntu1404 = GetUbuntu1404Scripts -Ubuntu1404PackageUrl $Ubuntu1404PackageUrl -Ubuntu1404PackageName $Ubuntu1404PackageName
-
-    # Ubuntu 16.04 Install Info
-    $Ubuntu1604 = GetUbuntu1604Scripts -Ubuntu1604PackageUrl $Ubuntu1604PackageUrl -Ubuntu1604PackageName $Ubuntu1604PackageName
-
-    # Ubuntu 18.04 Install Info
-    $Ubuntu1804 = GetUbuntu1804Scripts -Ubuntu1804PackageUrl $Ubuntu1804PackageUrl -Ubuntu1804PackageName $Ubuntu1804PackageName
-
-    # Debian 8 Install Info
-    $Debian8 = GetDebian8Scripts -Debian8PackageUrl $Debian8PackageUrl -Debian8PackageName $Debian8PackageName
-
-    # Debian 9 Install Info
-    $Debian9 = GetDebian9Scripts -Debian9PackageUrl $Debian9PackageUrl -Debian9PackageName $Debian9PackageName
-
-    # CentOS 7 and RHEL 7 Install Info
-    $CentOS7 = GetCentOS7Scripts -CentOS7PackageUrl $CentOS7PackageUrl -CentOS7PackageName $CentOS7PackageName
-
-    # OpenSUSE 42.3 Install Info
-    $OpenSUSE423 = GetOpenSUSE423Scripts -OpenSUSE423PackageUrl $OpenSUSE423PackageUrl -OpenSUSE423PackageName $OpenSUSE423PackageName
-
-    # Fedora Install Info
-    $Fedora = GetFedoraScripts -FedoraPackageUrl $Fedora28PackageUrl -FedoraPackageName $Fedora28PackageName
-
-    # Raspbian Install Info
-    $Raspbian = GetRaspbianScripts -LinuxGenericArmPackageUrl $LinuxGenericArmPackageUrl -LinuxGenericArmPackageName $LinuxGenericArmPackageName
-
-    # The below Operating Systems (Arch and MacOS) are situations where some operations MUST NOT be performed
-    # using sudo and others MUST be performed using sudo.
-
-    # Arch Install Info
-    $Arch = GetArchScripts
-
-    # MacOS Install Info
-    $MacOS = GetMacOSScripts
-
-    #endregion >> Prep
-
-    #region >> Main Body
-
-    # Probe the Remote Host to get OS and Shell Info
-    try {
-        Write-Host "Probing $RemoteHostNameOrIP to determine OS and available shell..."
-
-        $GetSSHProbeSplatParams = @{
-            RemoteHostNameOrIP  = $RemoteHostNameOrIP
+    if ($PrivateReposParamSetCheck -eq $true) {
+        if ($PersonalAccessToken) {
+            $PublicAndPrivateRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessToken"
+            $PrivateRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $true}
+            $PublicRepoObjects = $PublicAndPrivateRepoObjects | Where-Object {$_.private -eq $false}
         }
-        if ($KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("KeyFilePath",$KeyFilePath)
+        else {
+            $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
         }
-        if ($LocalUserName) {
-            $GetSSHProbeSplatParams.Add("LocalUserName",$LocalUserName)
-        }
-        if ($DomainUserName) {
-            $GetSSHProbeSplatParams.Add("DomainUserName",$DomainUserName)
-        }
-        if ($LocalPasswordSS -and !$KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-        }
-        if ($DomainPasswordSS -and !$KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-        }
-        if ($RemoteOSGuess) {
-            $GetSSHProbeSplatParams.Add("RemoteOSGuess",$RemoteOSGuess)
-        }
-        
-        $OSCheck = Get-SSHProbe @GetSSHProbeSplatParams -ErrorAction Stop
-    }
-    catch {
-        Write-Verbose $_.Exception.Message
-        $global:FunctionResult = "1"
-
-        try {
-            $null = Stop-AwaitSession
-        }
-        catch {
-            Write-Verbose $_.Exception.Message
-        }
-    }
-
-    if (!$OSCheck.OS -or !$OSCheck.Shell) {
-        try {
-            Write-Host "Probing $RemoteHostNameOrIP to determine OS and available shell..."
-
-            $GetSSHProbeSplatParams = @{
-                RemoteHostNameOrIP  = $RemoteHostNameOrIP
-            }
-            if ($KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("KeyFilePath",$KeyFilePath)
-            }
-            if ($LocalUserName) {
-                $GetSSHProbeSplatParams.Add("LocalUserName",$LocalUserName)
-            }
-            if ($DomainUserName) {
-                $GetSSHProbeSplatParams.Add("DomainUserName",$DomainUserName)
-            }
-            if ($LocalPasswordSS -and !$KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-            }
-            if ($DomainPasswordSS -and !$KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-            }
-            if ($RemoteOSGuess) {
-                $GetSSHProbeSplatParams.Add("RemoteOSGuess",$RemoteOSGuess)
-            }
-            
-            $OSCheck = Get-SSHProbe @GetSSHProbeSplatParams -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-    
-            try {
-                $null = Stop-AwaitSession
-            }
-            catch {
-                Write-Verbose $_.Exception.Message
-            }
-    
-            return
-        }
-    }
-
-    if (!$OSCheck.OS -or !$OSCheck.Shell) {
-        Write-Error "The Get-SSHProbe function was unable to identify $RemoteHostNameOrIP's platform or default shell! Please check your ssh connection/credentials. Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    if ($OSCheck.OS -eq "Linux") {
-        # Check to make sure the user has sudo privileges
-        try {
-            $GetSudoStatusSplatParams = @{
-                RemoteHostNameOrIP  = $RemoteHostNameOrIP
-            }
-            if ($KeyFilePath) {
-                $GetSudoStatusSplatParams.Add("KeyFilePath",$KeyFilePath)
-            }
-            if ($LocalPasswordSS) {
-                $GetSudoStatusSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-            }
-            if ($DomainPasswordSS) {
-                $GetSudoStatusSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-            }
-            if ($LocalUserName) {
-                $GetSudoStatusSplatParams.Add("LocalUserName",$LocalUserName)
-            }
-            if ($DomainUserName) {
-                $GetSudoStatusSplatParams.Add("DomainUserName",$DomainUserName)
-            }
-            
-            $GetSudoStatusResult = Get-SudoStatus @GetSudoStatusSplatParams
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-        
-        if (!$GetSudoStatusResult.HasSudoPrivileges) {
-            Write-Error "The user does not appear to have sudo privileges on $RemoteHostNameOrIP! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        # If the user has sudo privileges but there's a password prompt, but -LocalPasswordSS and -DomainPasswordSS
-        # parameters were not used, we need to halt
-        if ($GetSudoStatusResult.PasswordPrompt) {
-            if (!$LocalPasswordSS -and !$DomainPasswordSS) {
-                Write-Error "The user will be prompted for a sudo password, but neither the -LocalPasswordSS nor -DomainPasswordSS parameter was provided! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-    }
-
-    Write-Host "Get-SSHProbe identified OS: $($OSCheck.OS); Shell: $($OSCheck.Shell)"
-
-    # It's possible that the OSVersionInfo property is an array of strings, but we don't want the below switch to loop through each one,
-    # so we have to make sure we only give the switch one string object (i.e. $SanitizedOSVersionInfo)
-    $SanitizedOSVersionInfo = $($OSCheck.OSVersionInfo | foreach {$_ -split "`n"}) -join "`n"
-    switch ($SanitizedOSVersionInfo) {
-        {$($_ -match 'Microsoft|Windows' -and ![bool]$($_ -match "Linux")) -or $OSCheck.OS -eq "Windows"} {
-            $OSDetermination = "Windows"
-            $WindowsVersion = $OSCheck.OSVersionInfo
-        }
-
-        {$_ -match 'Darwin'} {
-            $OSDetermination = "MacOS"
-            $MacOSVersion = $OSCheck.OSVersionInfo
-        }
-
-        {$_ -match "Ubuntu 18\.04|18\.04\.[0-9]+-Ubuntu" -or $_ -match "Ubuntu.*1804|Ubuntu.*18\.04|1804.*Ubuntu|18\.04.*Ubuntu"} {
-            $OSDetermination = "Ubuntu1804"
-            $UbuntuVersion = "18.04"
-        }
-
-        {$_ -match "Ubuntu 16.04|16.04.[0-9]+-Ubuntu" -or $_ -match "Ubuntu.*1604|Ubuntu.*16\.04|1604.*Ubuntu|16\.04.*Ubuntu"} {
-            $OSDetermination = "Ubuntu1604"
-            $UbuntuVersion = "16.04"
-        }
-
-        {$_ -match "Ubuntu 14.04|14.04.[0-9]+-Ubuntu" -or $_ -match "Ubuntu.*1404|Ubuntu.*14\.04|1404.*Ubuntu|14\.04.*Ubuntu"} {
-            $OSDetermination = "Ubuntu1404"
-            $UbuntuVersion = "14.04"
-        }
-
-        {$_ -match 'Debian GNU/Linux 8|\+deb8' -or $_ -match "jessie"} {
-            $OSDetermination = "Debian8"
-            $DebianVersion = "8"
-        }
-
-        {$_ -match 'Debian GNU/Linux 9|\+deb9' -or $_ -match "stretch"} {
-            $OSDetermination = "Debian9"
-            $DebianVersion = "9"
-        }
-
-        {$_ -match 'CentOS|\.el[0-9]\.'} {
-            $OSDetermination = "CentOS7"
-            $CentOSVersion = "7"
-        }
-
-        {$_ -match 'RedHat'} {
-            $OSDetermination = "RHEL7"
-            $RHELVersion = "7"
-        }
-
-        {$_ -match 'openSUSE|leap.*42\.3|Leap 42\.3|openSUSE Leap'} {
-            $OSDetermination = "OpenSUSE423"
-            $OpenSUSEVersion = "42.3"
-        }
-
-        {$_ -match 'Arch Linux|arch[0-9]|-ARCH'} {
-            $OSDetermination = "Arch"
-            $OSVersionInfoLines = $_ -split "`n"
-            $KernelVersion = $($OSVersionInfoLines -match "Kernel: ") -split " " -split "-" -match "[0-9]+\.[0-9]+\.[0-9]+"
-            $ArchReleaseInfo = Invoke-RestMethod -Uri "https://www.archlinux.org/releng/releases/json"
-            $ArchVersionPrep = $($ArchReleaseInfo.releases | Where-Object {$_.kernel_version -eq $KernelVersion}).version
-            if ($ArchVersionPrep) {
-                $ArchVersion = @($ArchVersionPrep)[0]
+        if ($PublicRepoObject.Count -lt 1) {
+            if ($RemoteGitRepo) {
+                Write-Verbose "$RemoteGitRepo is either private or does not exist..."
             }
             else {
-                $ArchVersion = @(
-                    $ArchReleaseInfo.releases | Where-Object {
-                        $_.kernel_version -match $('^' + $($($KernelVersion -split "\.")[0..1] -join '\.'))
+                Write-Warning "No public repositories were found!"
+            }
+        }
+        if ($PrivateRepoObjects.Count -lt 1) {
+            Write-Verbose "No private repositories were found!"
+        }
+        if ($($PublicRepoObjects + $PrivateRepoObjects).Count -lt 1) {
+            Write-Verbose "No public or private repositories were found! Halting!"
+            Write-Error "No public or private repositories were found! Halting!"
+            Pop-Location
+            $global:FunctionResult = "1"
+            return
+        }
+        if ($RemoteGitRepoName) {
+            if ($PrivateRepoObjects.Name -contains $RemoteGitRepoName) {
+                $CloningOneOrMorePrivateRepos = $true
+            }
+        }
+        if ($CloneAllPrivateRepos -or $($CloneAllRepos -and $PrivateRepoObjects -ne $null)) {
+            $CloningOneOrMorePrivateRepos = $true
+        }
+        # If we're cloning a private repo, we're going to need Windows Credential Caching to avoid prompts
+        if ($CloningOneOrMorePrivateRepos) {
+            # Check the Windows Credential Store to see if we have appropriate credentials available already
+            # If not, add them to the Windows Credential Store
+            $FindCachedCredentials = Manage-WinCreds -ShoCred | Where-Object {
+                $_.UserName -eq $GitHubUserName -and
+                $_.Target -match "git"
+            }
+            if ($FindCachedCredentials.Count -gt 1) {
+                Write-Warning "More than one set of stored credentials matches the UserName $GitHubUserName and contains the string 'git' in the Target property."
+                Write-Host "Options are as follows:"
+                # We do NOT want the Password for any creds displayed in STDOUT...
+                # ...And it's possible that the GitHub PersonalAccessToken could be found in EITHER the Target Property OR the
+                # Password Property
+                $FindCachedCredentialsSansPassword = $FindCachedCredentials | foreach {
+                    $PotentialPersonalAccessToken = $($_.Target | Select-String -Pattern "https://.*?@git").Matches.Value -replace "https://","" -replace "@git",""
+                    if ($PotentialPersonalAccessToken -notmatch $GitHubUserName) {
+                        $_.Target = $_.Target -replace $PotentialPersonalAccessToken,"<redacted>"
+                        $_.PSObject.Properties.Remove('Password')
+                        $_
                     }
-                )[0]
-            }
-        }
-
-        {$_ -match 'Fedora 28|fedora:28'} {
-            $OSDetermination = "Fedora"
-            $FedoraVersion = "28"
-        }
-
-        {$_ -match 'Fedora 27|fedora:27'} {
-            $OSDetermination = "Fedora"
-            $FedoraVersion = "27"
-        }
-
-        {$_ -match 'armv.*GNU'} {
-            $OSDetermination = "Raspbian"
-            $RaspbianVersion = "stretch"
-        }
-    }
-
-    if (!$OSDetermination) {
-        Write-Error "Unable to determine OS Version Information for $RemoteHostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($OS) {
-        if ($OS -ne $OSDetermination) {
-            Write-Error "The Get-SSHProbe function reports that $RemoteHostNameOrIP is running $OSDetermination, however, the user explicitly specified -OS as $OS! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    else {
-        $OS = $OSDetermination
-    }
-
-    Write-Host "`$OS is: $OS"
-
-    if ($LocalPasswordSS) {
-        $LocalPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($LocalPasswordSS))
-    }
-    If ($DomainPasswordSS) {
-        $DomainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($DomainPasswordSS))
-    }
-
-    $TargetOSScripts = Get-Variable -Name $OS -ValueOnly
-
-    $SSHScriptBuilderSplatParams = @{
-        RemoteHostNameOrIP      = $RemoteHostNameOrIP
-    }
-    if ($LocalUserName) {
-        $null = $SSHScriptBuilderSplatParams.Add('LocalUserName',$LocalUserName)
-    }
-    if ($DomainUserName) {
-        $null = $SSHScriptBuilderSplatParams.Add('DomainUserName',$DomainUserName)
-    }
-    if ($LocalPassword) {
-        $null = $SSHScriptBuilderSplatParams.Add('LocalPassword',$LocalPassword)
-    }
-    if ($DomainPassword) {
-        $null = $SSHScriptBuilderSplatParams.Add('DomainPassword',$DomainPassword)
-    }
-    if ($KeyFilePath) {
-        $null = $SSHScriptBuilderSplatParams.Add('KeyFilePath',$KeyFilePath)
-    }
-
-    $OnWindows = !$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT"
-
-    if ($OSCheck.OS -eq "Windows") {
-        $null = $SSHScriptBuilderSplatParams.Add('WindowsTarget',$True)
-
-        if ($UsePackageManagement) {
-            if ($OnWindows) {
-                $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',3)
-            }
-            else {
-                #$null = $TargetOSScripts.PackageManagerInstallScript.Add('echo powershellInstallComplete')
-            }
-
-            if ($ConfigurePSRemoting) {
-                $SSHScriptArray = $TargetOSScripts.ConfigurePwshRemotingScript
-
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete|pwshConfigComplete')
-            }
-            else {
-                $SSHScriptArray = $TargetOSScripts.PackageManagerInstallScript
-
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete')
-            }
-        }
-        else {
-            if ($OnWindows) {
-                $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',3)
-            }
-            else {
-                #$null = $TargetOSScripts.ManualInstallScript.Add('echo powershellInstallComplete')
-            }
-
-            if ($ConfigurePSRemoting) {
-                $SSHScriptArray = $TargetOSScripts.ConfigurePwshRemotingScript
-
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete|pwshConfigComplete')
-            }
-            else {
-                $SSHScriptArray = $TargetOSScripts.ManualInstallScript
-
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete')
-            }
-        }
-    }
-    if ($OSCheck.OS -eq "Linux" -and $OS -ne "Arch" -and $OS -ne "MacOS") {
-        if ($UsePackageManagement) {
-            if ($OnWindows) {
-                $null = $TargetOSScripts.PackageManagerInstallScript.Insert($($TargetOSScripts.PackageManagerInstallScript.Count-1),'echo powershellInstallComplete')
-                $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',1)
-            }
-            else {
-                $null = $TargetOSScripts.PackageManagerInstallScript.Add('echo powershellInstallComplete')
-            }
-
-            if ($ConfigurePSRemoting) {
-                $null = $TargetOSScripts.ConfigurePwshRemotingScript.Add('echo pwshConfigComplete')
-
-                $SSHScriptArray = $TargetOSScripts.PackageManagerInstallScript + $TargetOSScripts.ConfigurePwshRemotingScript
+                }
+                for ($i=0; $i -lt $FindCachedCredentialsSansPassword.Count; $i++) {
+                    "`nOption $i)"
+                    $($($FindCachedCredentialsSansPassword[$i] | fl *) | Out-String).Trim()
+                }
+                $CachedCredentialChoice = Read-Host -Prompt "Please enter the Option Number that corresponds with the credentials you would like to use [0..$($FindCachedCredentials.Count-1)]"
+                if ($(0..$($FindCachedCredentials.Count-1)) -notcontains $CachedCredentialChoice) {
+                    Write-Verbose "Option Number $CachedCredentialChoice is not a valid Option Number! Halting!"
+                    Write-Error "Option Number $CachedCredentialChoice is not a valid Option Number! Halting!"
+                    Pop-Location
+                    $global:FunctionResult = "1"
+                    return
+                }
                 
-                $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete|pwshConfigComplete')
+                if (!$PersonalAccessToken) {
+                    if ($FindCachedCredentials[$CachedCredentialChoice].Password -notmatch "oauth") {
+                        $PersonalAccessToken = $FindCachedCredentials[$CachedCredentialChoice].Password
+                    }
+                    else {
+                        $PersonalAccessToken = $($FindCachedCredentials[$CachedCredentialChoice].Target | Select-String -Pattern "https://.*?@git").Matches.Value -replace "https://","" -replace "@git",""
+                    }
+                }
             }
-            else {
-                $SSHScriptArray = $TargetOSScripts.PackageManagerInstallScript
-                
-                $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete')
+            if ($FindCachedCredentials.Count -eq $null -and $FindCachedCredentials -ne $null) {
+                if (!$PersonalAccessToken) {
+                    if ($FindCachedCredentials.Password -notmatch "oauth") {
+                        $PersonalAccessToken = $FindCachedCredentials[$CachedCredentialChoice].Password
+                    }
+                    else {
+                        $PersonalAccessToken = $($FindCachedCredentials.Target | Select-String -Pattern "https://.*?@git").Matches.Value -replace "https://","" -replace "@git",""
+                    }
+                }
+            }
+            if ($FindCachedCredentials -eq $null) {
+                $CurrentGitConfig = git config --list
+                if ($CurrentGitConfig -notcontains "credential.helper=wincred") {
+                    git config --global credential.helper wincred
+                }
+                if (!$PersonalAccessToken) {
+                    $PersonalAccessToken = Read-Host -Prompt "Please enter your GitHub Personal Access Token." -AsSecureString
+                }
+
+                # Alternate Params for GitHub https auth
+                <#
+                $ManageStoredCredsParams = @{
+                    Target  = "git:https://$PersonalAccessToken@github.com"
+                    User    = $PersonalAccessToken
+                    Pass    = 'x-oauth-basic'
+                    Comment = "Saved By Manage-WinCreds.ps1"
+                }
+                #>
+                $ManageStoredCredsParams = @{
+                    Target  = "git:https://$GitHubUserName@github.com"
+                    User    = $GitHubUserName
+                    Pass    = $PersonalAccessToken
+                    Comment = "Saved By Manage-WinCreds.ps1"
+                }
+                Manage-WinCreds -AddCred @ManageStoredCredsParams
             }
         }
-        else {
-            if ($OnWindows) {
-                $null = $TargetOSScripts.ManualInstallScript.Insert($($TargetOSScripts.ManualInstallScript.Count-1),'echo powershellInstallComplete')
-                $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',1)
-            }
-            else {
-                $null = $TargetOSScripts.ManualInstallScript.Add('echo powershellInstallComplete')
-            }
 
-            if ($ConfigurePSRemoting) {
-                $null = $TargetOSScripts.ConfigurePwshRemotingScript.Add('echo pwshConfigComplete')
-
-                $SSHScriptArray = $TargetOSScripts.ManualInstallScript + $TargetOSScripts.ConfigurePwshRemotingScript
-
-                $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete|pwshConfigComplete')
-            }
-            else {
-                $SSHScriptArray = $TargetOSScripts.ManualInstallScript
-
-                $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$SSHScriptArray)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete')
-            }
-        }
-    }
-    if ($OS -eq "Arch" -or $OS -eq "MacOS") {
-        if ($UsePackageManagement) {
-            if ($OnWindows) {
-                $null = $TargetOSScripts.PackageManagerInstallScript.Insert($($TargetOSScripts.PackageManagerInstallScript.Count-1),'echo powershellInstallComplete')
-                if ($OS -eq "MacOS") {
-                    $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',12)
+        if ($CloneAllPrivateRepos) {
+            foreach ($RepoObject in $PrivateRepoObjects) {
+                if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
+                    if ($CloningOneOrMorePrivateRepos) {
+                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.WorkingDirectory = $GitRepoParentDirectory
+                        $ProcessInfo.FileName = "git"
+                        $ProcessInfo.RedirectStandardError = $true
+                        $ProcessInfo.RedirectStandardOutput = $true
+                        $ProcessInfo.UseShellExecute = $false
+                        $ProcessInfo.Arguments = "clone $($RepoObject.html_url)"
+                        $Process = New-Object System.Diagnostics.Process
+                        $Process.StartInfo = $ProcessInfo
+                        $Process.Start() | Out-Null
+                        # Below $FinishedInAlottedTime returns boolean true/false
+                        $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                        if (!$FinishedInAlottedTime) {
+                            $Process.Kill()
+                            Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Pop-Location
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                        $stdout = $Process.StandardOutput.ReadToEnd()
+                        $stderr = $Process.StandardError.ReadToEnd()
+                        $AllOutput = $stdout + $stderr
+                        Write-Host "##### BEGIN git clone Console Output #####"
+                        Write-Host "$AllOutput"
+                        Write-Host "##### END git clone Console Output #####"
+                        
+                    }
                 }
                 else {
-                    $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',3)
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    $global:FunctionResult = "1"
+                    break
                 }
-                if ($OS -eq "Arch") {
-                    $null = $SSHScriptBuilderSplatParams.Add('PwdPromptDelaySeconds',180)
-                }
-            }
-            else {
-                $null = $TargetOSScripts.PackageManagerInstallScript.Add('echo powershellInstallComplete')
-            }
-
-            if ($ConfigurePSRemoting) {
-                $null = $TargetOSScripts.ConfigurePwshRemotingScript.Add('echo pwshConfigComplete')
-                
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$TargetOSScripts.PackageManagerInstallScript)
-                $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$TargetOSScripts.ConfigurePwshRemotingScript)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete|pwshConfigComplete')
-            }
-            else {
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$TargetOSScripts.PackageManagerInstallScript)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete')
             }
         }
-        else {
-            if ($OnWindows) {
-                $null = $TargetOSScripts.ManualInstallScript.Insert($($TargetOSScripts.ManualInstallScript.Count-1),'echo powershellInstallComplete')
-                if ($OS -eq "MacOS") {
-                    $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',12)
+        if ($CloneAllPublicRepos) {
+            foreach ($RepoObject in $PublicRepoObjects) {
+                if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
+                    git clone $RepoObject.html_url
                 }
                 else {
-                    $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',3)
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    $global:FunctionResult = "1"
+                    break
                 }
-                if ($OS -eq "Arch") {
-                    $null = $SSHScriptBuilderSplatParams.Add('PwdPromptDelaySeconds',180)
+            }
+        }
+        if ($CloneAllRepos) {
+            foreach ($RepoObject in $($PublicRepoObjects + $PrivateRepoObjects)) {
+                if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
+                    if ($CloningOneOrMorePrivateRepos) {
+                        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                        $ProcessInfo.WorkingDirectory = $GitRepoParentDirectory
+                        $ProcessInfo.FileName = "git"
+                        $ProcessInfo.RedirectStandardError = $true
+                        $ProcessInfo.RedirectStandardOutput = $true
+                        $ProcessInfo.UseShellExecute = $false
+                        $ProcessInfo.Arguments = "clone $($RepoObject.html_url)"
+                        $Process = New-Object System.Diagnostics.Process
+                        $Process.StartInfo = $ProcessInfo
+                        $Process.Start() | Out-Null
+                        # Below $FinishedInAlottedTime returns boolean true/false
+                        $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                        if (!$FinishedInAlottedTime) {
+                            $Process.Kill()
+                            Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                            Pop-Location
+                            $global:FunctionResult = "1"
+                            return
+                        }
+                        $stdout = $Process.StandardOutput.ReadToEnd()
+                        $stderr = $Process.StandardError.ReadToEnd()
+                        $AllOutput = $stdout + $stderr
+                        Write-Host "##### BEGIN git clone Console Output #####"
+                        Write-Host "$AllOutput"
+                        Write-Host "##### END git clone Console Output #####"
+                        
+                    }
+                    else {
+                        git clone $RepoObject.html_url
+                    }
+                }
+                else {
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Pop-Location
+                    $global:FunctionResult = "1"
+                    break
+                }
+            }
+        }
+        if ($RemoteGitRepoName) {
+            $RemoteGitRepoObject = $($PublicRepoObjects + $PrivateRepoObjects) | Where-Object {$_.Name -eq $RemoteGitRepoName}
+            if ($RemoteGitRepoObject -eq $null) {
+                Write-Verbose "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
+                Write-Error "Unable to find a public or private repository with the name $RemoteGitRepoName! Halting!"
+                Pop-Location
+                $global:FunctionResult = "1"
+                return
+            }
+            if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
+                if ($CloningOneOrMorePrivateRepos) {
+                    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $ProcessInfo.WorkingDirectory = $GitRepoParentDirectory
+                    $ProcessInfo.FileName = "git"
+                    $ProcessInfo.RedirectStandardError = $true
+                    $ProcessInfo.RedirectStandardOutput = $true
+                    $ProcessInfo.UseShellExecute = $false
+                    $ProcessInfo.Arguments = "clone $($RemoteGitRepoObject.html_url)"
+                    $Process = New-Object System.Diagnostics.Process
+                    $Process.StartInfo = $ProcessInfo
+                    $Process.Start() | Out-Null
+                    # Below $FinishedInAlottedTime returns boolean true/false
+                    $FinishedInAlottedTime = $Process.WaitForExit(15000)
+                    if (!$FinishedInAlottedTime) {
+                        $Process.Kill()
+                        Write-Verbose "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                        Write-Error "git is prompting for UserName and Password, which means Credential Caching is not configured correctly! Halting!"
+                        Pop-Location
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                    $stdout = $Process.StandardOutput.ReadToEnd()
+                    $stderr = $Process.StandardError.ReadToEnd()
+                    $AllOutput = $stdout + $stderr
+                    Write-Host "##### BEGIN git clone Console Output #####"
+                    Write-Host "$AllOutput"
+                    Write-Host "##### END git clone Console Output #####"
+                    
+                }
+                else {
+                    git clone $RemoteGitRepoObject.html_url
                 }
             }
             else {
-                $null = $TargetOSScripts.ManualInstallScript.Add('echo powershellInstallComplete')
+                Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Pop-Location
+                $global:FunctionResult = "1"
+                return
             }
+        }
+    }
+    if ($NoPrivateReposParamSetCheck -eq $true) {
+        $PublicRepoObjects = Invoke-RestMethod -Uri "https://api.github.com/users/$GitHubUserName/repos"
+        if ($PublicRepoObjects.Count -lt 1) {
+            Write-Verbose "No public repositories were found! Halting!"
+            Write-Error "No public repositories were found! Halting!"
+            Pop-Location
+            $global:FunctionResult = "1"
+            return
+        }
 
-            if ($ConfigurePSRemoting) {
-                $null = $TargetOSScripts.ConfigurePwshRemotingScript.Add('echo pwshConfigComplete')
-
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$TargetOSScripts.ManualInstallScript)
-                $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$TargetOSScripts.ConfigurePwshRemotingScript)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete|pwshConfigComplete')
+        if ($CloneAllPublicRepos -or $CloneAllRepos) {
+            foreach ($RepoObject in $PublicRepoObjects) {
+                if (!$(Test-Path "$GitRepoParentDirectory\$($RepoObject.Name)")) {
+                    git clone $RepoObject.html_url
+                }
+                else {
+                    Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Skipping!"
+                    Pop-Location
+                    $global:FunctionResult = "1"
+                    break
+                }
+            }
+        }
+        if ($RemoteGitRepoName) {
+            $RemoteGitRepoObject = $PublicRepoObjects | Where-Object {$_.Name -eq $RemoteGitRepoName}
+            if ($RemoteGitRepoObject -eq $null) {
+                Write-Verbose "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
+                Write-Error "Unable to find a public repository with the name $RemoteGitRepoName! Is it private? If so, use the -PersonalAccessToken parameter. Halting!"
+                Pop-Location
+                $global:FunctionResult = "1"
+                return
+            }
+            if (!$(Test-Path "$GitRepoParentDirectory\$($RemoteGitRepoObject.Name)")) {
+                git clone $RemoteGitRepoObject.html_url
             }
             else {
-                $null = $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$TargetOSScripts.ManualInstallScript)
-                $null = $SSHScriptBuilderSplatParams.Add('ScriptCompleteFlag','powershellInstallComplete')
-            }
-        }
-    }
-
-    $FinalOutput = SSHScriptBuilder @SSHScriptBuilderSplatParams
-
-    $FinalOutput
-    
-    #endregion >> Main Body
-}
-
-
-<#
-    .SYNOPSIS
-        This function does the following to a Remote Host:
-
-        - Installs the latest version of PowerShell Core using the Remote Host's Package Management system
-        - Configures sshd on the Remote Host to use pwsh by default
-        - If the Remote Host is Linux, removes the default setting that causes a password prompt when a sudoer uses runs 'sudo pwsh'
-
-    .DESCRIPTION
-        See SYNOPSIS
-
-    .PARAMETER RemoteOSGuess
-        This parameter is OPTIONAL.
-        
-        This parameter takes a string (either "Windows" or "Linux") that represents the type of platform you anticipate the
-        Remote Host is running. The default value for this parameter is "Windows".
-
-        IMPORTANT NOTE: If you specify "Linux" and it turns out that the Remote Host is running Windows, this function will fail.
-        So, if you're not sure, leave the default value "Windows".
-
-    .PARAMETER RemoteHostNameOrIP
-        This parameter is MANDATORY.
-
-        This parameter takes a string that represents the DNS-resolvable HostName/FQDN or IPv4 Address of the target Remote Host
-
-    .PARAMETER LocalUserName
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a string that represents the Local User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <RemoteHostName>\<UserName>
-
-    .Parameter DomainUserName
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a string that represents the Domain User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <DomainShortName>\<UserName>
-
-    .Parameter LocalPasswordSS
-        This parameter is OPTIONAL. (However, either -LocalPasswordSS or -KeyFilePath is mandatory for the 'Domain' Parameter Set)
-
-        This parameter takes a securestring that represents the password for the -LocalUserName you are using to ssh into the
-        Remote Host.
-
-    .Parameter DomainPasswordSS
-        This parameter is OPTIONAL. (However, either -DomainPasswordSS or -KeyFilePath is mandatory for the 'Domain' Parameter Set)
-
-        This parameter takes a securestring that represents the password for the -DomainUserName you are using to ssh into the
-        Remote Host.
-
-    .PARAMETER KeyFilePath
-        This parameter is OPTIONAL. (However, either -DomainPasswordSS, -LocalPasswordSS, or -KeyFilePath is required)
-
-        This parameter takes a string that represents the full path to the Key File you are using to ssh into the Remote Host.
-        Use this parameter instead of -LocalPasswordSS or -DomainPasswordSS.
-
-    .PARAMETER UsePackageManagement
-        This parameter is OPTIONAL, however, it has a default value of $True
-
-        This parameter is a switch. If used (default behavior), the appropriate Package Management system on the Remote Host
-        will be used to install PowerShell Core.
-
-        If explicitly set to $False, the appropriate PowerShell Core installation package will be downloaded directly from GitHub
-        and installed on the Remote Host.
-
-    .PARAMETER DomainUserForNoSudoPwd
-        This parameter is OPTIONAL.
-
-        This parameter takes a string or array of strings that represent Domain Users that you would like to allow to use
-        'sudo pwsh' without a password prompt. Each user must be in format: <DomainShortName>\<UserName>
-
-        Only applies to Linux Remote Hosts.
-
-    .PARAMETER LocalUserForNoSudoPwd
-        This parameter is OPTIONAL.
-
-        This parameter takes a string or array of strings that represent Local Users on the Remote Host that you would like to
-        allow to use 'sudo pwsh' without a password prompt. Each user must be in format: <RemoteHostName>\<UserName>
-
-        Only applies to Linux Remote Hosts.
-
-    .PARAMETER DomainGroupForNoSudoPwd
-        This parameter is OPTIONAL.
-
-        This parameter takes a string or array of strings that represent Domain Groups that you would like to allow to use
-        'sudo pwsh' without a password prompt.
-
-        Only applies to Linux Remote Hosts.
-
-    .EXAMPLE
-        # Minimal parameters...
-
-        $ConfigurePwshRemotingSplatParams = @{
-            RemoteHostNameOrIP      = "192.168.2.61"
-            LocalUserName           = "centos7x\vagrant"
-            LocalPasswordSS         = $(Read-Host -Prompt "Enter password" -AsSecureString)
-        }
-        $ConfigurePwshRemotingResult = Configure-PwshRemoting @ConfigurePwshRemotingSplatParams
-        
-#>
-function Configure-PwshRemoting {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [ValidateSet("Windows","Linux")]
-        [string]$RemoteOSGuess = "Windows",
-
-        [Parameter(Mandatory=$True)]
-        [string]$RemoteHostNameOrIP,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <RemoteHostName>\<User>
-        [string]$LocalUserName,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Domain'    
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string]$DomainUserName,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Local'
-        )]
-        [securestring]$LocalPasswordSS,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Domain'
-        )]
-        [securestring]$DomainPasswordSS,
-
-        [Parameter(Mandatory=$False)]
-        [string]$KeyFilePath,
-
-        [Parameter(Mandatory=$False)]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string[]]$DomainUserForNoSudoPwd,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string[]]$LocalUserForNoSudoPwd,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Domain'
-        )]
-        [string[]]$DomainGroupForNoSudoPwd
-    )
-
-    #region >> Prep
-
-    if (!$(Get-Command ssh -ErrorAction SilentlyContinue)) {
-        Write-Error "Unable to find 'ssh'! Please make sure it is installed and part of your Environment/System Path! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($KeyFilePath) {
-        if (!$(Test-Path $KeyFilePath)) {
-            Write-Error "Unable to find KeyFilePath '$KeyFilePath'! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        if (!$LocalUserName -and !$DomainUserName) {
-            Write-Error "You must supply either -LocalUserName or -DomainUserName when using the -KeyFilePath parameter! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    try {
-        $RemoteHostNetworkInfo = ResolveHost -HostNameOrIP $RemoteHostNameOrIP -ErrorAction Stop
-    }
-    catch {
-        Write-Error $_
-        Write-Error "Unable to resolve '$RemoteHostNameOrIP'! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalPasswordSS -or $DomainPasswordSS -and $KeyFilePath) {
-        Write-Error "Please use EITHER -KeyFilePath OR -LocalPasswordSS/-DomainPasswordSS in order to ssh to $RemoteHostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalUserName) {
-        if ($($LocalUserName -split "\\")[0] -ne $RemoteHostNetworkInfo.HostName) {
-            $ErrMsg = "The HostName indicated by -LocalUserName (i.e. $($($LocalUserName -split "\\")[0]) is not the same as " +
-            "the HostName as determined by network resolution (i.e. $($RemoteHostNetworkInfo.HostName))! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if ($DomainUserName) {
-        if ($($DomainUserName -split "\\")[0] -ne $($RemoteHostNetworkInfo.Domain -split "\.")[0]) {
-            $ErrMsg = "The Domain indicated by -DomainUserName (i.e. '$($($DomainUserName -split "\\")[0])') is not the same as " +
-            "the Domain as determined by network resolution (i.e. '$($($RemoteHostNetworkInfo.Domain -split "\.")[0])')! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    # Probe the Remote Host to get OS and Shell Info
-    try {
-        Write-Host "Probing $RemoteHostNameOrIP to determine OS and available shell..."
-
-        $GetSSHProbeSplatParams = @{
-            RemoteHostNameOrIP  = $RemoteHostNameOrIP
-        }
-        if ($KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("KeyFilePath",$KeyFilePath)
-        }
-        if ($LocalUserName) {
-            $GetSSHProbeSplatParams.Add("LocalUserName",$LocalUserName)
-        }
-        if ($DomainUserName) {
-            $GetSSHProbeSplatParams.Add("DomainUserName",$DomainUserName)
-        }
-        if ($LocalPasswordSS -and !$KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-        }
-        if ($DomainPasswordSS -and !$KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-        }
-        if ($RemoteOSGuess) {
-            $GetSSHProbeSplatParams.Add("RemoteOSGuess",$RemoteOSGuess)
-        }
-        
-        $OSCheck = Get-SSHProbe @GetSSHProbeSplatParams -ErrorAction Stop
-    }
-    catch {
-        Write-Verbose $_.Exception.Message
-        $global:FunctionResult = "1"
-
-        try {
-            $null = Stop-AwaitSession
-        }
-        catch {
-            Write-Verbose $_.Exception.Message
-        }
-    }
-
-    if (!$OSCheck.OS -or !$OSCheck.Shell) {
-        try {
-            Write-Host "Probing $RemoteHostNameOrIP to determine OS and available shell..."
-
-            $GetSSHProbeSplatParams = @{
-                RemoteHostNameOrIP  = $RemoteHostNameOrIP
-            }
-            if ($KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("KeyFilePath",$KeyFilePath)
-            }
-            if ($LocalUserName) {
-                $GetSSHProbeSplatParams.Add("LocalUserName",$LocalUserName)
-            }
-            if ($DomainUserName) {
-                $GetSSHProbeSplatParams.Add("DomainUserName",$DomainUserName)
-            }
-            if ($LocalPasswordSS -and !$KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-            }
-            if ($DomainPasswordSS -and !$KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-            }
-            if ($RemoteOSGuess) {
-                $GetSSHProbeSplatParams.Add("RemoteOSGuess",$RemoteOSGuess)
-            }
-            
-            $OSCheck = Get-SSHProbe @GetSSHProbeSplatParams -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-    
-            try {
-                $null = Stop-AwaitSession
-            }
-            catch {
-                Write-Verbose $_.Exception.Message
-            }
-    
-            return
-        }
-    }
-
-    if (!$OSCheck.OS -or !$OSCheck.Shell) {
-        Write-Error "The Get-SSHProbe function was unable to identify $RemoteHostNameOrIP's platform or default shell! Please check your ssh connection/credentials. Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    if ($OSCheck.OS -eq "Linux") {
-        # Check to make sure the user has sudo privileges
-        try {
-            $GetSudoStatusSplatParams = @{
-                RemoteHostNameOrIP  = $RemoteHostNameOrIP
-            }
-            if ($KeyFilePath) {
-                $GetSudoStatusSplatParams.Add("KeyFilePath",$KeyFilePath)
-            }
-            if ($LocalPasswordSS) {
-                $GetSudoStatusSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-            }
-            if ($DomainPasswordSS) {
-                $GetSudoStatusSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-            }
-            if ($LocalUserName) {
-                $GetSudoStatusSplatParams.Add("LocalUserName",$LocalUserName)
-            }
-            if ($DomainUserName) {
-                $GetSudoStatusSplatParams.Add("DomainUserName",$DomainUserName)
-            }
-            
-            $GetSudoStatusResult = Get-SudoStatus @GetSudoStatusSplatParams
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-        
-        if (!$GetSudoStatusResult.HasSudoPrivileges) {
-            Write-Error "The user does not appear to have sudo privileges on $RemoteHostNameOrIP! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        # If the user has sudo privileges but there's a password prompt, but -LocalPasswordSS and -DomainPasswordSS
-        # parameters were not used, we need to halt
-        if ($GetSudoStatusResult.PasswordPrompt) {
-            if (!$LocalPasswordSS -and !$DomainPasswordSS) {
-                Write-Error "The user will be prompted for a sudo password, but neither the -LocalPasswordSS nor -DomainPasswordSS parameter was provided! Halting!"
+                Write-Verbose "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Write-Error "The RemoteGitRepo $RemoteGitRepoName already exists under $GitRepoParentDirectory\$RemoteGitRepoName! Halting!"
+                Pop-Location
                 $global:FunctionResult = "1"
                 return
             }
         }
     }
 
-    #endregion >> Prep
+    Pop-Location
 
-    #region >> Main
+    ##### END Main Body #####
 
-    try {
-        $BootstrapPwshSplatParams = @{
-            RemoteHostNameOrIP      = $RemoteHostNameOrIP
-            ConfigurePSRemoting     = $True
-            ErrorAction             = "Stop"
-        }
-        if ($LocalUserName) {
-            $BootstrapPwshSplatParams.Add('LocalUserName',$LocalUserName)
-        }
-        if ($DomainUserName) {
-            $BootstrapPwshSplatParams.Add('DomainUserName',$DomainUserName)
-        }
-
-        if ($KeyFilePath) {
-            $BootstrapPwshSplatParams.Add('KeyFilePath',$KeyFilePath)
-        }
-        if ($LocalPasswordSS) {
-            $BootstrapPwshSplatParams.Add('LocalPasswordSS',$LocalPasswordSS)
-        }
-        if ($DomainPasswordSS) {
-            $BootstrapPwshSplatParams.Add('DomainPasswordSS',$DomainPasswordSS)
-        }
-        $BootstrapPwshResult = Bootstrap-PowerShellCore @BootstrapPwshSplatParams
-    }
-    catch {
-        Write-Error $_
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($OSCheck.OS -eq "Linux") {
-        $RemoveSudoPwdSplatParams = @{
-            RemoteHostNameOrIP      = $RemoteHostNameOrIP
-            ErrorAction             = "Stop"
-        }
-        if ($LocalUserName) {
-            $RemoveSudoPwdSplatParams.Add('LocalUserName',$LocalUserName)
-        }
-        if ($DomainUserName) {
-            $RemoveSudoPwdSplatParams.Add('DomainUserName',$DomainUserName)
-        }
-        if ($KeyFilePath) {
-            $RemoveSudoPwdSplatParams.Add('KeyFilePath',$KeyFilePath)
-        }
-        if ($LocalPasswordSS) {
-            $RemoveSudoPwdSplatParams.Add('LocalPasswordSS',$LocalPasswordSS)
-        }
-        if ($DomainPasswordSS) {
-            $RemoveSudoPwdSplatParams.Add('DomainPasswordSS',$DomainPasswordSS)
-        }
-        if ($DomainUserForNoSudoPwd) {
-            $RemoveSudoPwdSplatParams.Add('DomainUserForNoSudoPwd',$DomainUserForNoSudoPwd)
-        }
-        elseif ($LocalUserForNoSudoPwd) {
-            $RemoveSudoPwdSplatParams.Add('LocalUserForNoSudoPwd',$LocalUserForNoSudoPwd)
-        }
-        elseif ($DomainGroupForNoSudoPwd) {
-            $RemoveSudoPwdSplatParams.Add('DomainGroupForNoSudoPwd',$DomainGroupForNoSudoPwd)
-        }
-        $RemoveSudoPwdResult = Remove-SudoPwd @RemoveSudoPwdSplatParams
-    }
-
-    # Test to make sure PwshRemoting is configured properly
-    <#
-    $NewPSSessionSplatParams = @{
-        HostName    = $RemoteHostNetworkInfo.IPAddressList[0]
-    }
-    if ($LocalUserName) {
-        $NewPSSessionSplatParams.Add('UserName',$LocalUserName)
-    }
-    if ($DomainUserName) {
-        $NewPSSessionSplatParams.Add('UserName',$DomainUserName)
-    }
-    if ($KeyFilePath) {
-        $NewPSSessionSplatParams.Add('KeyFilePath',$KeyFilePath)
-    }
-
-    $ToRemoteHost = New-PSSession @NewPSSessionSplatParams
-    $SB = {
-        $PSVersionTable | ConvertTo-Json
-    }
-    $Bytes = [System.Text.Encoding]::Unicode.GetBytes($SB.ToString())
-    $EncodedCommandPSVerTable = [Convert]::ToBase64String($Bytes)
-    Invoke-Command -Session $ToRemoteHost -ScriptBlock {sudo pwsh -EncodedCommand $using:EncodedCommandPSVerTable} | ConvertFrom-Json
-    #>
-
-    [pscustomobject]@{
-        GetSudoStatusResult     = $GetSudoStatusResult
-        BootstrapPwshResult     = $BootstrapPwshResult
-        RemoveSudoPwdResult     = $RemoveSudoPwdResult
-    }
-
-    #endregion >> Main
 }
 
 
 <#
     .SYNOPSIS
-        Use ssh to determine OS information and the default shell for a Remote Host.
+        Configures Git Command Line for the current PowerShell Session in the current local Git Repo  directory.
 
     .DESCRIPTION
-        See SYNOPSIS
+        See Synopsis.
 
-    .PARAMETER RemoteOSGuess
-        This parameter is OPTIONAL.
+    .PARAMETER GitHubUserName
+        TODO
+
+    .PARAMETER GitHubEmail
+        TODO
+
+    .PARAMETER AuthMethod
+        TODO
+
+    .PARAMETER ExistingSSHPrivateKeyPath
+        TODO
+
+    .PARAMETER NewSSHKeyName
+        TODO
+    
+    .PARAMETER NewSSHKeyPwd
+        TODO
+
+    .PARAMETER PersonalAccessToken
+        TODO
+
+    .EXAMPLE
+        # Launch PowerShell and...
+
+        $GitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@mykolab.com"
+            AuthMethod = "https"
+            PersonalAccessToken = "2345678dsfghjk4567890"
+        }
+
+        Configure-GitCmdLine @GitAuthParams
+
+    .EXAMPLE
+        # Launch PowerShell and...
+
+        $GitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@mykolab.com"
+            AuthMethod = "ssh"
+            NewSSHKeyName "gitauth_rsa"
+        }
+
+        Configure-GitCmdLine @GitAuthParams
+
+    .EXAMPLE
+        # Launch PowerShell and...
+
+        $GitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@mykolab.com"
+            AuthMethod = "ssh"
+            ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa" 
+        }
         
-        This parameter takes a string (either "Windows" or "Linux") that represents the type of platform you anticipate the
-        Remote Host has. The default value for this parameter is "Windows".
+        Configure-GitCmdLine @GitAuthParams
 
-        IMPORTANT NOTE: If you specify "Linux" and it turns out that the Remote Host is running Windows, this function will fail.
-        So, if you're not sure, leave the default value "Windows".
-
-    .PARAMETER RemoteHostNameOrIP
-        This parameter is MANDATORY.
-
-        This parameter takes a string that represents the DNS-resolvable HostName/FQDN or IPv4 Address of the target Remote Host
-
-    .PARAMETER LocalUserName
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a string that represents the Local User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <RemoteHostName>\<UserName>
-
-    .Parameter DomainUserName
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a string that represents the Domain User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <DomainShortName>\<UserName>
-
-    .Parameter LocalPasswordSS
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a securestring that represents the password for the -LocalUserName you are using to ssh into the
-        Remote Host.
-
-    .Parameter DomainPasswordSS
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a securestring that represents the password for the -DomainUserName you are using to ssh into the
-        Remote Host.
-
-    .PARAMETER KeyFilePath
-        This parameter is OPTIONAL.
-
-        This parameter takes a string that represents the full path to the Key File you are using to ssh into the Remote Host.
-        Use this parameter instead of -LocalPasswordSS or -DomainPasswordSS.
-
-    .EXAMPLE
-        # Minimal parameters...
-
-        $GetSSHProbeSplatParams = @{
-            RemoteHostNameOrIP      = "zerowin16sshb"
-            DomainUserNameSS        = "zero\zeroadmin"
-            DomainPasswordSS        = $(Read-Host -Prompt "Enter password" -AsSecureString)
-        }
-        Get-SSHProbe @GetSSHProbeSplatParams
-
-    .EXAMPLE
-        # Using a local account on the Remote Host...
-
-        $GetSSHProbeSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            LocalPasswordSS         = $(Read-Host -Prompt "Enter password" -AsSecureString)
-        }
-        Get-SSHProbe @GetSSHProbeSplatParams
-
-    .EXAMPLE
-        # Using an ssh Key File instead of a password...
-
-        $GetSSHProbeSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            KeyFilePath             = $HOME/.ssh/my_ssh_key
-        }
-        Get-SSHProbe @GetSSHProbeSplatParams
-        
 #>
-function Get-SSHProbe {
-    [CmdletBinding(DefaultParameterSetName='Domain')]
+function Configure-GitCmdLine {
+    [CmdletBinding(DefaultParameterSetname='AuthSetup')]
+    Param(
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubUserName = $(Read-Host -Prompt "Please enter your GitHub Username"),
+
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubEmail = $(Read-Host -Prompt "Please the primary GitHub email address associated with $GitHubUserName"),
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("https","ssh")]
+        [string]$AuthMethod = $(Read-Host -Prompt "Please select the Authentication Method you would like to use. [https/ssh]"),
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='SSH Auth'
+        )]
+        [string]$ExistingSSHPrivateKeyPath,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='SSH Auth'
+        )]
+        [string]$NewSSHKeyName,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='SSH Auth'
+        )]
+        $NewSSHKeyPwd,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='HTTPS Auth'
+        )]
+        [securestring]$PersonalAccessToken
+    )
+
+    ##### BEGIN Variable/Parameter Transforms and PreRun Prep ######
+
+    $CurrentUser = $($([System.Security.Principal.WindowsIdentity]::GetCurrent()).Name -split "\\")[-1]
+
+    # Make sure git cmdline is installed
+    if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        $ExpectedGitPath = "C:\Program Files\Git\cmd"
+        if ($($env:Path -split ";") -notcontains [regex]::Escape($ExpectedGitPath)) {
+            if (Test-Path $ExpectedGitPath) {
+                $env:Path = $ExpectedGitPath + ";" + $env:Path
+            }
+        }
+    }
+    if (![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Error "Unable to find git.exe! Try installing with the 'Install-GitCmdLine' function. Halting!"
+        $global:FunctionResult = "1"
+        return
+    }
+
+    # Make sure global config for UserName and Email Address is configured
+    git config --global user.name "$GitHubUserName"
+    git config --global user.email "$GitHubEmail"
+
+    if ($ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd) {
+        $AuthMethod = "ssh"
+    }
+    if ($PersonalAccessToken) {
+        $AuthMethod = "https"
+    }
+    if (!$AuthMethod) {
+        $AuthMethod = "ssh"
+    }
+
+    if ($AuthMethod -eq "https" -and $($ExistingSSHPrivateKeyPath -or $NewSSHKeyName -or $NewSSHKeyPwd)) {
+        $ErrMsg = "The parameters -ExistingSSHPrivateKeyPath, -NewSSHKeyName, " +
+        "and/or -NewSSHKeyPwd should only be used when -AuthMethod is `"ssh`"! Halting!"
+        Write-Error $ErrMsg
+        $global:FunctionResult = "1"
+        return
+    }
+    # NOTE: We do NOT need to force use of -ExistingSSHPrivateKeyPath or -NewSSHKeyName when -AuthMethod is "ssh"
+    # because Setup-GitCmdLine function can handle things if neither are provided
+    if ($AuthMethod -eq "https") {
+        if (!$PersonalAccessToken) {
+            $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
+        }
+
+        # Convert SecureString to PlainText
+        $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+
+        git config --global credential.helper wincred
+
+        # Alternate Stored Credentials Format
+        <#
+        $ManageStoredCredsParams = @{
+            Target  = "git:https://$PersonalAccessToken@github.com"
+            User    = $PersonalAccessToken
+            Pass    = 'x-oauth-basic'
+            Comment = "Saved By Manage-WinCreds.ps1"
+        }
+        #>
+        $ManageStoredCredsParams = @{
+            Target  = "git:https://$GitHubUserName@github.com"
+            User    = $GitHubUserName
+            Pass    = $PersonalAccessTokenPT
+            Comment = "Saved By Manage-WinCreds.ps1"
+        }
+        $null = Manage-WinCreds -AddCred @ManageStoredCredsParams
+
+        # Test https OAuth2 authentication
+        # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
+        $GitHubAuthSuccess = Test-GitAuthentication -GitHubUserName $GitHubUserName -AuthMethod $AuthMethod -PersonalAccessToken $PersonalAccessToken
+        if ($GitHubAuthSuccess) {
+            $env:GitCmdLineConfigured = "True"
+        }
+    }
+    if ($AuthMethod -eq "ssh") {
+        if ($ExistingSSHPrivateKeyPath) {
+            try {
+                $ExistingSSHPrivateKeyPath = $(Resolve-Path $ExistingSSHPrivateKeyPath -ErrorAction Stop).Path
+            }
+            catch {
+                Write-Error $_
+                $global:FunctionResult = "1"
+                return
+            }
+        }
+        else {
+            if (Test-Path "$HOME\.ssh\github_rsa") {
+                $ExistingSSHPrivateKeyPath = "$HOME\.ssh\github_rsa"
+            }
+            else {
+                if ($NewSSHKeyPwd) {
+                    if ($NewSSHKeyPwd.GetType().FullName -eq "System.Security.SecureString") {
+                        # Convert SecureString to PlainText
+                        $NewSSHKeyPwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($NewSSHKeyPwd))
+                    }
+                }
+                if (!$NewSSHKeyName) {
+                    $NewSSHKeyName = "github_rsa"
+                }
+                $SSHKeyGenPath = $(Get-ChildItem "C:\Program Files\Git" -Recurse -Filter "*ssh-keygen.exe").FullName
+                $SSHKeyGenArgumentsString = "-t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -q -N `"$NewSSHKeyPwd`" -C `"GitAuthFor$CurrentUser`""
+                $SSHKeyGenArgumentsNoPwdString = "-t rsa -b 2048 -f `"$HOME\.ssh\$NewSSHKeyName`" -q -C `"GitAuthFor$CurrentUser`""
+
+                if (!$(Test-Path "$HOME\.ssh")) {
+                    New-Item -Type Directory -Path "$HOME\.ssh"
+                }
+            
+                # Create new public/private keypair
+                if ($NewSSHKeyPwd) {
+                    $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $ProcessInfo.WorkingDirectory = $($SSHKeyGenPath | Split-Path -Parent)
+                    $ProcessInfo.FileName = $SSHKeyGenPath
+                    $ProcessInfo.RedirectStandardError = $true
+                    $ProcessInfo.RedirectStandardOutput = $true
+                    $ProcessInfo.UseShellExecute = $false
+                    $ProcessInfo.Arguments = $SSHKeyGenArgumentsString
+                    $Process = New-Object System.Diagnostics.Process
+                    $Process.StartInfo = $ProcessInfo
+                    $Process.Start() | Out-Null
+                    $stdout = $Process.StandardOutput.ReadToEnd()
+                    $stderr = $Process.StandardError.ReadToEnd()
+                    $AllOutput = $stdout + $stderr
+            
+                    if ($AllOutput -match "fail|error") {
+                        Write-Error $AllOutput
+                        Write-Error "The 'ssh-keygen command failed! Halting!"
+                        $global:FunctionResult = "1"
+                        return
+                    }
+                }
+                else {
+                    try {
+                        if ($(Get-Module -ListAvailable).Name -notcontains 'WinSSH') {$null = Install-Module WinSSH -ErrorAction Stop}
+                        if ($(Get-Module).Name -notcontains 'WinSSH') {$null = Import-Module WinSSH -ErrorAction Stop}
+                        Import-Module "$($(Get-Module WinSSH).ModuleBase)\Await\Await.psd1" -ErrorAction Stop
+                    }
+                    catch {
+                        Write-Error $_
+                        $global:FunctionResult = "1"
+                        return
+                    }
+            
+                    # Make sure we don't have any other Await sessions running...
+                    try {
+                        $null = Stop-AwaitSession
+                    }
+                    catch {
+                        Write-Verbose $_.Exception.Message
+                    }
+            
+                    Start-AwaitSession
+                    Start-Sleep -Seconds 1
+                    Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
+                    $PSAwaitProcess = $($(Get-Process | ? {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
+                    Start-Sleep -Seconds 1
+                    Send-AwaitCommand "`$env:Path = '$env:Path'; Push-Location '$($SSHKeyGenPath | Split-Path -Parent)'"
+                    Start-Sleep -Seconds 1
+                    #Send-AwaitCommand "Invoke-Expression `"& '$SSHKeyGenPath' $SSHKeyGenArgumentsNoPwdString`""
+                    Send-AwaitCommand ".\ssh-keygen.exe $SSHKeyGenArgumentsNoPwdString"
+                    Start-Sleep -Seconds 2
+                    # The below is the equivalent of pressing [ENTER] to proceed with the ssh-keygen.exe interactive prompt
+                    Send-AwaitCommand ""
+                    Start-Sleep -Seconds 2
+                    # The below is the equivalent of pressing [ENTER] to proceed with the ssh-keygen.exe interactive prompt
+                    Send-AwaitCommand ""
+                    Start-Sleep -Seconds 1
+                    $SSHKeyGenConsoleOutput = Receive-AwaitResponse
+            
+                    # If Stop-AwaitSession errors for any reason, it doesn't return control, so we need to handle in try/catch block
+                    if ($PSAwaitProcess.Id) {
+                        try {
+                            $null = Stop-AwaitSession
+                        }
+                        catch {
+                            if ($PSAwaitProcess.Id -eq $PID) {
+                                Write-Error "The PSAwaitSession never spawned! Halting!"
+                                $global:FunctionResult = "1"
+                                return
+                            }
+                            else {
+                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
+                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
+                                }
+                                $Counter = 0
+                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
+                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
+                                    Start-Sleep -Seconds 1
+                                    $Counter++
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!$(Test-Path "$HOME\.ssh\$NewSSHKeyName")) {
+                    Write-Error "ssh-keygen did not successfully create the public/private keypair! Halting!"
+                    $global:FunctionResult = "1"
+                    return
+                }
+                else {
+                    $ExistingSSHPrivateKeyPath = "$HOME\.ssh\$NewSSHKeyName"
+                }
+            }
+        }
+
+        $null = git config core.sshCommand "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath)) -F /dev/null" 2>&1
+        $env:GIT_SSH_COMMAND = "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath))"
+
+        # Check To Make Sure Online GitHub Account is aware of Existing Public Key
+        $GitHubAuthSuccess = Test-GitAuthentication -GitHubUserName $GitHubUserName -AuthMethod $AuthMethod -ExistingSSHPrivateKeyPath $ExistingSSHPrivateKeyPath
+        if (!$GitHubAuthSuccess) {
+            Write-Host ""
+            Write-Host "GitHub Authentication was successfully configured on the client machine, however, we were not able to successfully authenticate to GitHub using '$ExistingSSHPrivateKeyPath'"
+            Write-Host "Please add '$HOME\.ssh\$ExistingSSHPrivateKeyPath.pub' to your GitHub Account via Web Browser by:"
+            Write-Host "    1) Navigating to Settings"
+            Write-Host "    2) In the user settings sidebar, click SSH and GPG keys."
+            Write-Host "    3) Add SSH Key"
+            Write-Host "    4) Enter a descriptive Title like: SSH Key for Paul-MacBookPro auth"
+            Write-Host "    5) Paste your key into the Key field."
+            Write-Host "    6) Click Add SSH key."
+        }
+        else {
+            $env:GitCmdLineConfigured = "True"
+        }
+    }
+
+    ##### END Main Body #####
+}
+
+
+<#
+    .SYNOPSIS
+        Install Git Command Line and add it to $env:Path and System PATH.
+
+    .DESCRIPTION
+        See Synopsis.
+    
+    .EXAMPLE
+        # Launch PowerShell and...
+
+        Install-GitCmdline
+
+#>
+function Install-GitCmdLine {
+    [CmdletBinding()]
+    Param ()
+
+    Install-Program -ProgramName git -CommandName git
+}
+
+
+<#
+    .SYNOPSIS
+        Install the Git Desktop GUI app.
+
+    .DESCRIPTION
+        See Synopsis.
+    
+    .EXAMPLE
+        # Launch PowerShell and...
+
+        Install-GitDesktop
+
+#>
+function Install-GitDesktop {
+    [CmdletBinding()]
+    Param ()
+
+    #Install-Program -ProgramName github-desktop
+    Install-Program -ProgramName github-desktop -ResolveCommandPath:$False -UseChocolateyCmdLine
+}
+
+
+<#
+    .Synopsis
+        Provides access to Windows Credential Manager basic functionality for client scripts. Allows the user
+        to add, delete, and show credentials within the Windows Credential Manager.
+
+        Refactored From: https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Credentials-d44c3cde
+
+        ****************** IMPORTANT ******************
+        *
+        * If you use this script from the PS console, you 
+        * should ALWAYS pass the Target, User and Password
+        * parameters using single quotes:
+        * 
+        *  .\CredMan.ps1 -AddCred -Target 'http://server' -User 'JoeSchmuckatelli' -Pass 'P@55w0rd!'
+        * 
+        * to prevent PS misinterpreting special characters 
+        * you might use as PS reserved characters
+        * 
+        ****************** IMPORTANT ******************
+
+    .Description
+        See .SYNOPSIS
+
+    .NOTES
+        Original Author: Jim Harrison (jim@isatools.org)
+        Date  : 2012/05/20
+        Vers  : 1.5
+
+    .PARAMETER AddCred
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. Use it in conjunction with -Target, -User, and -Pass
+        parameters to add a new credential or update existing credentials.
+
+    .PARAMETER Comment
+        This parameter is OPTIONAL.
+
+        This parameter takes a string that represents additional information that you wish
+        to place in the credentials comment field. Use with the -AddCred switch.
+
+    .PARAMETER CredPersist
+        This parameter is OPTIONAL, however, it has a default value of "ENTERPRISE".
+
+        This parameter takes a string. Valid values are:
+        "SESSION", "LOCAL_MACHINE", "ENTERPRISE"
+        
+        ENTERPRISE persistance means that the credentials will survive logoff and reboot.
+        
+    .PARAMETER CredType
+        This parameter is OPTIONAL, however, it has a default value of "GENERIC".
+
+        This parameter takes a string. Valid values are:
+        "GENERIC", "DOMAIN_PASSWORD", "DOMAIN_CERTIFICATE",
+        "DOMAIN_VISIBLE_PASSWORD", "GENERIC_CERTIFICATE", "DOMAIN_EXTENDED",
+        "MAXIMUM", "MAXIMUM_EX"
+        
+        ****************** IMPORTANT ******************
+        *
+        * I STRONGLY recommend that you become familiar 
+        * with http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
+        * before you create new credentials with -CredType other than "GENERIC"
+        * 
+        ****************** IMPORTANT ******************
+
+    .PARAMETER DelCred
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. Use it to remove existing credentials. If more than one
+        credential sets have the same -Target, you must use this switch in conjunction with the
+        -CredType parameter.
+
+    .PARAMETER GetCred
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. Use it to retrieve an existing credential. The
+        -CredType parameter may be required to access the correct credential if more set
+        of credentials have the same -Target.
+
+    .PARAMETER Pass
+        This parameter is OPTIONAL, however, it is MANDATORY if the -AddCred switch is used.
+
+        This parameter takes a string that represents tha secret/password that you would like to store.
+
+    .PARAMETER RunTests
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. If used, the function will run built-in Win32 CredMan
+        functionality tests.
+
+    .PARAMETER ShoCred
+        This parameter is OPTIONAL.
+
+        This parameter is a switch. If used, the function will retrieve all credentials stored for
+        the interactive user.
+
+    .PARAMETER Target
+        This parameter is OPTIONAL, however, it is MANDATORY unless the -ShoCred switch is used.
+
+        This parameter takes a string that specifies the authentication target for the specified credentials
+        If not specified, the value provided to the -User parameter is used.
+
+    .PARAMETER User
+        This parameter is OPTIONAL.
+
+        This parameter takes a string that represents the credential's UserName.
+        
+
+    .LINK
+        http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
+        http://stackoverflow.com/questions/7162604/get-cached-credentials-in-powershell-from-windows-7-credential-manager
+        http://msdn.microsoft.com/en-us/library/windows/desktop/aa374788(v=vs.85).aspx
+        http://blogs.msdn.com/b/peerchan/archive/2005/11/01/487834.aspx
+
+    .EXAMPLE
+        # Stores the credential for 'UserName' with a password of 'P@55w0rd!' for authentication against 'http://aserver' and adds a comment of 'cuziwanna'
+        Manage-StoredCredentials -AddCred -Target 'http://aserver' -User 'UserName' -Password 'P@55w0rd!' -Comment 'cuziwanna'
+
+    .EXAMPLE
+        # Removes the credential used for the target 'http://aserver' as credentials type 'DOMAIN_PASSWORD'
+        Manage-StoredCredentials -DelCred -Target 'http://aserver' -CredType 'DOMAIN_PASSWORD'
+
+    .EXAMPLE
+        # Retreives the credential used for the target 'http://aserver'
+        Manage-StoredCredentials -GetCred -Target 'http://aserver'
+
+    .EXAMPLE
+        # Retrieves a summary list of all credentials stored for the interactive user
+        Manage-StoredCredentials -ShoCred
+
+    .EXAMPLE
+        # Retrieves a detailed list of all credentials stored for the interactive user
+        Manage-StoredCredentials -ShoCred -All
+
+#>
+function Manage-StoredCredentials {
+    [CmdletBinding()]
+    Param (
+     [Parameter(Mandatory=$false)]
+        [Switch] $AddCred,
+
+     [Parameter(Mandatory=$false)]
+        [Switch]$DelCred,
+     
+        [Parameter(Mandatory=$false)]
+        [Switch]$GetCred,
+     
+        [Parameter(Mandatory=$false)]
+        [Switch]$ShoCred,
+
+     [Parameter(Mandatory=$false)]
+        [Switch]$RunTests,
+     
+        [Parameter(Mandatory=$false)]
+        [ValidateLength(1,32767) <# CRED_MAX_GENERIC_TARGET_NAME_LENGTH #>]
+        [String]$Target,
+
+     [Parameter(Mandatory=$false)]
+        [ValidateLength(1,512) <# CRED_MAX_USERNAME_LENGTH #>]
+        [String]$User,
+
+     [Parameter(Mandatory=$false)]
+        [ValidateLength(1,512) <# CRED_MAX_CREDENTIAL_BLOB_SIZE #>]
+        [String]$Pass,
+
+     [Parameter(Mandatory=$false)]
+        [ValidateLength(1,256) <# CRED_MAX_STRING_LENGTH #>]
+        [String]$Comment,
+
+     [Parameter(Mandatory=$false)]
+        [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
+        "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+        [String]$CredType = "GENERIC",
+
+     [Parameter(Mandatory=$false)]
+        [ValidateSet("SESSION","LOCAL_MACHINE","ENTERPRISE")]
+        [String]$CredPersist = "ENTERPRISE"
+    )
+
+    #region Pinvoke
+    #region Inline C#
+    [String] $PsCredmanUtils = @"
+    using System;
+    using System.Runtime.InteropServices;
+
+    namespace PsUtils
+    {
+        public class CredMan
+        {
+            #region Imports
+            // DllImport derives from System.Runtime.InteropServices
+            [DllImport("Advapi32.dll", SetLastError = true, EntryPoint = "CredDeleteW", CharSet = CharSet.Unicode)]
+            private static extern bool CredDeleteW([In] string target, [In] CRED_TYPE type, [In] int reservedFlag);
+
+            [DllImport("Advapi32.dll", SetLastError = true, EntryPoint = "CredEnumerateW", CharSet = CharSet.Unicode)]
+            private static extern bool CredEnumerateW([In] string Filter, [In] int Flags, out int Count, out IntPtr CredentialPtr);
+
+            [DllImport("Advapi32.dll", SetLastError = true, EntryPoint = "CredFree")]
+            private static extern void CredFree([In] IntPtr cred);
+
+            [DllImport("Advapi32.dll", SetLastError = true, EntryPoint = "CredReadW", CharSet = CharSet.Unicode)]
+            private static extern bool CredReadW([In] string target, [In] CRED_TYPE type, [In] int reservedFlag, out IntPtr CredentialPtr);
+
+            [DllImport("Advapi32.dll", SetLastError = true, EntryPoint = "CredWriteW", CharSet = CharSet.Unicode)]
+            private static extern bool CredWriteW([In] ref Credential userCredential, [In] UInt32 flags);
+            #endregion
+
+            #region Fields
+            public enum CRED_FLAGS : uint
+            {
+                NONE = 0x0,
+                PROMPT_NOW = 0x2,
+                USERNAME_TARGET = 0x4
+            }
+
+            public enum CRED_ERRORS : uint
+            {
+                ERROR_SUCCESS = 0x0,
+                ERROR_INVALID_PARAMETER = 0x80070057,
+                ERROR_INVALID_FLAGS = 0x800703EC,
+                ERROR_NOT_FOUND = 0x80070490,
+                ERROR_NO_SUCH_LOGON_SESSION = 0x80070520,
+                ERROR_BAD_USERNAME = 0x8007089A
+            }
+
+            public enum CRED_PERSIST : uint
+            {
+                SESSION = 1,
+                LOCAL_MACHINE = 2,
+                ENTERPRISE = 3
+            }
+
+            public enum CRED_TYPE : uint
+            {
+                GENERIC = 1,
+                DOMAIN_PASSWORD = 2,
+                DOMAIN_CERTIFICATE = 3,
+                DOMAIN_VISIBLE_PASSWORD = 4,
+                GENERIC_CERTIFICATE = 5,
+                DOMAIN_EXTENDED = 6,
+                MAXIMUM = 7,      // Maximum supported cred type
+                MAXIMUM_EX = (MAXIMUM + 1000),  // Allow new applications to run on old OSes
+            }
+
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+            public struct Credential
+            {
+                public CRED_FLAGS Flags;
+                public CRED_TYPE Type;
+                public string TargetName;
+                public string Comment;
+                public DateTime LastWritten;
+                public UInt32 CredentialBlobSize;
+                public string CredentialBlob;
+                public CRED_PERSIST Persist;
+                public UInt32 AttributeCount;
+                public IntPtr Attributes;
+                public string TargetAlias;
+                public string UserName;
+            }
+
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+            private struct NativeCredential
+            {
+                public CRED_FLAGS Flags;
+                public CRED_TYPE Type;
+                public IntPtr TargetName;
+                public IntPtr Comment;
+                public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+                public UInt32 CredentialBlobSize;
+                public IntPtr CredentialBlob;
+                public UInt32 Persist;
+                public UInt32 AttributeCount;
+                public IntPtr Attributes;
+                public IntPtr TargetAlias;
+                public IntPtr UserName;
+            }
+            #endregion
+
+            #region Child Class
+            private class CriticalCredentialHandle : Microsoft.Win32.SafeHandles.CriticalHandleZeroOrMinusOneIsInvalid
+            {
+                public CriticalCredentialHandle(IntPtr preexistingHandle)
+                {
+                    SetHandle(preexistingHandle);
+                }
+
+                private Credential XlateNativeCred(IntPtr pCred)
+                {
+                    NativeCredential ncred = (NativeCredential)Marshal.PtrToStructure(pCred, typeof(NativeCredential));
+                    Credential cred = new Credential();
+                    cred.Type = ncred.Type;
+                    cred.Flags = ncred.Flags;
+                    cred.Persist = (CRED_PERSIST)ncred.Persist;
+
+                    long LastWritten = ncred.LastWritten.dwHighDateTime;
+                    LastWritten = (LastWritten << 32) + ncred.LastWritten.dwLowDateTime;
+                    cred.LastWritten = DateTime.FromFileTime(LastWritten);
+
+                    cred.UserName = Marshal.PtrToStringUni(ncred.UserName);
+                    cred.TargetName = Marshal.PtrToStringUni(ncred.TargetName);
+                    cred.TargetAlias = Marshal.PtrToStringUni(ncred.TargetAlias);
+                    cred.Comment = Marshal.PtrToStringUni(ncred.Comment);
+                    cred.CredentialBlobSize = ncred.CredentialBlobSize;
+                    if (0 < ncred.CredentialBlobSize)
+                    {
+                        cred.CredentialBlob = Marshal.PtrToStringUni(ncred.CredentialBlob, (int)ncred.CredentialBlobSize / 2);
+                    }
+                    return cred;
+                }
+
+                public Credential GetCredential()
+                {
+                    if (IsInvalid)
+                    {
+                        throw new InvalidOperationException("Invalid CriticalHandle!");
+                    }
+                    Credential cred = XlateNativeCred(handle);
+                    return cred;
+                }
+
+                public Credential[] GetCredentials(int count)
+                {
+                    if (IsInvalid)
+                    {
+                        throw new InvalidOperationException("Invalid CriticalHandle!");
+                    }
+                    Credential[] Credentials = new Credential[count];
+                    IntPtr pTemp = IntPtr.Zero;
+                    for (int inx = 0; inx < count; inx++)
+                    {
+                        pTemp = Marshal.ReadIntPtr(handle, inx * IntPtr.Size);
+                        Credential cred = XlateNativeCred(pTemp);
+                        Credentials[inx] = cred;
+                    }
+                    return Credentials;
+                }
+
+                override protected bool ReleaseHandle()
+                {
+                    if (IsInvalid)
+                    {
+                        return false;
+                    }
+                    CredFree(handle);
+                    SetHandleAsInvalid();
+                    return true;
+                }
+            }
+            #endregion
+
+            #region Custom API
+            public static int CredDelete(string target, CRED_TYPE type)
+            {
+                if (!CredDeleteW(target, type, 0))
+                {
+                    return Marshal.GetHRForLastWin32Error();
+                }
+                return 0;
+            }
+
+            public static int CredEnum(string Filter, out Credential[] Credentials)
+            {
+                int count = 0;
+                int Flags = 0x0;
+                if (string.IsNullOrEmpty(Filter) ||
+                    "*" == Filter)
+                {
+                    Filter = null;
+                    if (6 <= Environment.OSVersion.Version.Major)
+                    {
+                        Flags = 0x1; //CRED_ENUMERATE_ALL_CREDENTIALS; only valid is OS >= Vista
+                    }
+                }
+                IntPtr pCredentials = IntPtr.Zero;
+                if (!CredEnumerateW(Filter, Flags, out count, out pCredentials))
+                {
+                    Credentials = null;
+                    return Marshal.GetHRForLastWin32Error(); 
+                }
+                CriticalCredentialHandle CredHandle = new CriticalCredentialHandle(pCredentials);
+                Credentials = CredHandle.GetCredentials(count);
+                return 0;
+            }
+
+            public static int CredRead(string target, CRED_TYPE type, out Credential Credential)
+            {
+                IntPtr pCredential = IntPtr.Zero;
+                Credential = new Credential();
+                if (!CredReadW(target, type, 0, out pCredential))
+                {
+                    return Marshal.GetHRForLastWin32Error();
+                }
+                CriticalCredentialHandle CredHandle = new CriticalCredentialHandle(pCredential);
+                Credential = CredHandle.GetCredential();
+                return 0;
+            }
+
+            public static int CredWrite(Credential userCredential)
+            {
+                if (!CredWriteW(ref userCredential, 0))
+                {
+                    return Marshal.GetHRForLastWin32Error();
+                }
+                return 0;
+            }
+
+            #endregion
+
+            private static int AddCred()
+            {
+                Credential Cred = new Credential();
+                string Password = "Password";
+                Cred.Flags = 0;
+                Cred.Type = CRED_TYPE.GENERIC;
+                Cred.TargetName = "Target";
+                Cred.UserName = "UserName";
+                Cred.AttributeCount = 0;
+                Cred.Persist = CRED_PERSIST.ENTERPRISE;
+                Cred.CredentialBlobSize = (uint)Password.Length;
+                Cred.CredentialBlob = Password;
+                Cred.Comment = "Comment";
+                return CredWrite(Cred);
+            }
+
+            private static bool CheckError(string TestName, CRED_ERRORS Rtn)
+            {
+                switch(Rtn)
+                {
+                    case CRED_ERRORS.ERROR_SUCCESS:
+                        Console.WriteLine(string.Format("'{0}' worked", TestName));
+                        return true;
+                    case CRED_ERRORS.ERROR_INVALID_FLAGS:
+                    case CRED_ERRORS.ERROR_INVALID_PARAMETER:
+                    case CRED_ERRORS.ERROR_NO_SUCH_LOGON_SESSION:
+                    case CRED_ERRORS.ERROR_NOT_FOUND:
+                    case CRED_ERRORS.ERROR_BAD_USERNAME:
+                        Console.WriteLine(string.Format("'{0}' failed; {1}.", TestName, Rtn));
+                        break;
+                    default:
+                        Console.WriteLine(string.Format("'{0}' failed; 0x{1}.", TestName, Rtn.ToString("X")));
+                        break;
+                }
+                return false;
+            }
+
+            /*
+             * Note: the Main() function is primarily for debugging and testing in a Visual 
+             * Studio session.  Although it will work from PowerShell, it's not very useful.
+             */
+            public static void Main()
+            {
+                Credential[] Creds = null;
+                Credential Cred = new Credential();
+                int Rtn = 0;
+
+                Console.WriteLine("Testing CredWrite()");
+                Rtn = AddCred();
+                if (!CheckError("CredWrite", (CRED_ERRORS)Rtn))
+                {
+                    return;
+                }
+                Console.WriteLine("Testing CredEnum()");
+                Rtn = CredEnum(null, out Creds);
+                if (!CheckError("CredEnum", (CRED_ERRORS)Rtn))
+                {
+                    return;
+                }
+                Console.WriteLine("Testing CredRead()");
+                Rtn = CredRead("Target", CRED_TYPE.GENERIC, out Cred);
+                if (!CheckError("CredRead", (CRED_ERRORS)Rtn))
+                {
+                    return;
+                }
+                Console.WriteLine("Testing CredDelete()");
+                Rtn = CredDelete("Target", CRED_TYPE.GENERIC);
+                if (!CheckError("CredDelete", (CRED_ERRORS)Rtn))
+                {
+                    return;
+                }
+                Console.WriteLine("Testing CredRead() again");
+                Rtn = CredRead("Target", CRED_TYPE.GENERIC, out Cred);
+                if (!CheckError("CredRead", (CRED_ERRORS)Rtn))
+                {
+                    Console.WriteLine("if the error is 'ERROR_NOT_FOUND', this result is OK.");
+                }
+            }
+        }
+    }
+"@
+    #endregion
+
+    $PsCredMan = $null
+    try
+    {
+     $PsCredMan = [PsUtils.CredMan]
+    }
+    catch
+    {
+     #only remove the error we generate
+     try {$Error.RemoveAt($Error.Count-1)} catch {Write-Verbose "No past errors yet..."}
+    
+    }
+    if($null -eq $PsCredMan)
+    {
+     Add-Type $PsCredmanUtils
+    }
+    #endregion
+
+    #region Internal Tools
+    [HashTable] $ErrorCategory = @{0x80070057 = "InvalidArgument";
+                                   0x800703EC = "InvalidData";
+                                   0x80070490 = "ObjectNotFound";
+                                   0x80070520 = "SecurityError";
+                                   0x8007089A = "SecurityError"}
+
+    function Get-CredType {
+     Param (
+      [Parameter(Mandatory=$true)]
+            [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+            [String]$CredType
+     )
+     
+     switch($CredType) {
+      "GENERIC" {return [PsUtils.CredMan+CRED_TYPE]::GENERIC}
+      "DOMAIN_PASSWORD" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_PASSWORD}
+      "DOMAIN_CERTIFICATE" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_CERTIFICATE}
+      "DOMAIN_VISIBLE_PASSWORD" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_VISIBLE_PASSWORD}
+      "GENERIC_CERTIFICATE" {return [PsUtils.CredMan+CRED_TYPE]::GENERIC_CERTIFICATE}
+      "DOMAIN_EXTENDED" {return [PsUtils.CredMan+CRED_TYPE]::DOMAIN_EXTENDED}
+      "MAXIMUM" {return [PsUtils.CredMan+CRED_TYPE]::MAXIMUM}
+      "MAXIMUM_EX" {return [PsUtils.CredMan+CRED_TYPE]::MAXIMUM_EX}
+     }
+    }
+
+    function Get-CredPersist {
+     Param (
+      [Parameter(Mandatory=$true)]
+            [ValidateSet("SESSION","LOCAL_MACHINE","ENTERPRISE")]
+            [String] $CredPersist
+     )
+     
+     switch($CredPersist) {
+      "SESSION" {return [PsUtils.CredMan+CRED_PERSIST]::SESSION}
+      "LOCAL_MACHINE" {return [PsUtils.CredMan+CRED_PERSIST]::LOCAL_MACHINE}
+      "ENTERPRISE" {return [PsUtils.CredMan+CRED_PERSIST]::ENTERPRISE}
+     }
+    }
+    #endregion
+
+    #region Dot-Sourced API
+    function Del-Creds {
+        <#
+        .Synopsis
+            Deletes the specified credentials
+
+        .Description
+            Calls Win32 CredDeleteW via [PsUtils.CredMan]::CredDelete
+
+        .INPUTS
+            See function-level notes
+
+        .OUTPUTS
+            0 or non-0 according to action success
+            [Management.Automation.ErrorRecord] if error encountered
+
+        .PARAMETER Target
+            Specifies the URI for which the credentials are associated
+          
+        .PARAMETER CredType
+            Specifies the desired credentials type; defaults to 
+            "CRED_TYPE_GENERIC"
+        #>
+
+     Param (
+      [Parameter(Mandatory=$true)]
+            [ValidateLength(1,32767)]
+            [String] $Target,
+
+      [Parameter(Mandatory=$false)]
+            [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+            [String] $CredType = "GENERIC"
+     )
+     
+     [Int]$Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredDelete($Target, $(Get-CredType $CredType))
+     }
+     catch {
+      return $_
+     }
+     if(0 -ne $Results) {
+      [String]$Msg = "Failed to delete credentials store for target '$Target'"
+      [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+      return $ErrRcd
+     }
+     return $Results
+    }
+
+    function Enum-Creds {
+        <#
+        .Synopsis
+          Enumerates stored credentials for operating user
+
+        .Description
+          Calls Win32 CredEnumerateW via [PsUtils.CredMan]::CredEnum
+
+        .INPUTS
+          
+        .OUTPUTS
+          [PsUtils.CredMan+Credential[]] if successful
+          [Management.Automation.ErrorRecord] if unsuccessful or error encountered
+
+        .PARAMETER Filter
+          Specifies the filter to be applied to the query
+          Defaults to [String]::Empty
+          
+        #>
+
+     Param (
+      [Parameter(Mandatory=$false)]
+            [AllowEmptyString()]
+            [String]$Filter = [String]::Empty
+     )
+     
+     [PsUtils.CredMan+Credential[]]$Creds = [Array]::CreateInstance([PsUtils.CredMan+Credential], 0)
+     [Int]$Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredEnum($Filter, [Ref]$Creds)
+     }
+     catch {
+      return $_
+     }
+     switch($Results) {
+            0 {break}
+            0x80070490 {break} #ERROR_NOT_FOUND
+            default {
+          [String]$Msg = "Failed to enumerate credentials store for user '$Env:UserName'"
+          [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+          [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+          return $ErrRcd
+            }
+     }
+     return $Creds
+    }
+
+    function Read-Creds {
+        <#
+        .Synopsis
+            Reads specified credentials for operating user
+
+        .Description
+            Calls Win32 CredReadW via [PsUtils.CredMan]::CredRead
+
+        .INPUTS
+
+        .OUTPUTS
+            [PsUtils.CredMan+Credential] if successful
+            [Management.Automation.ErrorRecord] if unsuccessful or error encountered
+
+        .PARAMETER Target
+            Specifies the URI for which the credentials are associated
+            If not provided, the username is used as the target
+          
+        .PARAMETER CredType
+            Specifies the desired credentials type; defaults to 
+            "CRED_TYPE_GENERIC"
+        #>
+
+     Param (
+      [Parameter(Mandatory=$true)]
+            [ValidateLength(1,32767)]
+            [String]$Target,
+
+      [Parameter(Mandatory=$false)]
+            [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+            [String]$CredType = "GENERIC"
+     )
+     
+        #CRED_MAX_DOMAIN_TARGET_NAME_LENGTH
+     if ("GENERIC" -ne $CredType -and 337 -lt $Target.Length) { 
+      [String]$Msg = "Target field is longer ($($Target.Length)) than allowed (max 337 characters)"
+      [Management.ManagementException]$MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord]$ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, 666, 'LimitsExceeded', $null)
+      return $ErrRcd
+     }
+     [PsUtils.CredMan+Credential]$Cred = New-Object PsUtils.CredMan+Credential
+        [Int]$Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredRead($Target, $(Get-CredType $CredType), [Ref]$Cred)
+     }
+     catch {
+      return $_
+     }
+     
+     switch($Results) {
+            0 {break}
+            0x80070490 {return $null} #ERROR_NOT_FOUND
+            default {
+          [String] $Msg = "Error reading credentials for target '$Target' from '$Env:UserName' credentials store"
+          [Management.ManagementException]$MgmtException = New-Object Management.ManagementException($Msg)
+          [Management.Automation.ErrorRecord]$ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+          return $ErrRcd
+            }
+     }
+     return $Cred
+    }
+
+    function Write-Creds {
+        <#
+        .Synopsis
+          Saves or updates specified credentials for operating user
+
+        .Description
+          Calls Win32 CredWriteW via [PsUtils.CredMan]::CredWrite
+
+        .INPUTS
+
+        .OUTPUTS
+          [Boolean] true if successful
+          [Management.Automation.ErrorRecord] if unsuccessful or error encountered
+
+        .PARAMETER Target
+          Specifies the URI for which the credentials are associated
+          If not provided, the username is used as the target
+          
+        .PARAMETER UserName
+          Specifies the name of credential to be read
+          
+        .PARAMETER Password
+          Specifies the password of credential to be read
+          
+        .PARAMETER Comment
+          Allows the caller to specify the comment associated with 
+          these credentials
+          
+        .PARAMETER CredType
+          Specifies the desired credentials type; defaults to 
+          "CRED_TYPE_GENERIC"
+
+        .PARAMETER CredPersist
+          Specifies the desired credentials storage type;
+          defaults to "CRED_PERSIST_ENTERPRISE"
+        #>
+
+     Param (
+      [Parameter(Mandatory=$false)]
+            [ValidateLength(0,32676)]
+            [String]$Target,
+
+      [Parameter(Mandatory=$true)]
+            [ValidateLength(1,512)]
+            [String]$UserName,
+
+      [Parameter(Mandatory=$true)]
+            [ValidateLength(1,512)]
+            [String]$Password,
+
+      [Parameter(Mandatory=$false)]
+            [ValidateLength(0,256)]
+            [String]$Comment = [String]::Empty,
+
+      [Parameter(Mandatory=$false)]
+            [ValidateSet("GENERIC","DOMAIN_PASSWORD","DOMAIN_CERTIFICATE","DOMAIN_VISIBLE_PASSWORD",
+      "GENERIC_CERTIFICATE","DOMAIN_EXTENDED","MAXIMUM","MAXIMUM_EX")]
+            [String]$CredType = "GENERIC",
+
+      [Parameter(Mandatory=$false)]
+            [ValidateSet("SESSION","LOCAL_MACHINE","ENTERPRISE")]
+            [String]$CredPersist = "ENTERPRISE"
+     )
+
+     if ([String]::IsNullOrEmpty($Target)) {
+      $Target = $UserName
+     }
+        #CRED_MAX_DOMAIN_TARGET_NAME_LENGTH
+     if ("GENERIC" -ne $CredType -and 337 -lt $Target.Length) {
+      [String] $Msg = "Target field is longer ($($Target.Length)) than allowed (max 337 characters)"
+      [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, 666, 'LimitsExceeded', $null)
+      return $ErrRcd
+     }
+        if ([String]::IsNullOrEmpty($Comment)) {
+            $Comment = [String]::Format("Last edited by {0}\{1} on {2}",$Env:UserDomain,$Env:UserName,$Env:ComputerName)
+        }
+     [String]$DomainName = [Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+     [PsUtils.CredMan+Credential]$Cred = New-Object PsUtils.CredMan+Credential
+     
+        switch($Target -eq $UserName -and 
+        $("CRED_TYPE_DOMAIN_PASSWORD" -eq $CredType -or "CRED_TYPE_DOMAIN_CERTIFICATE" -eq $CredType)) {
+      $true  {$Cred.Flags = [PsUtils.CredMan+CRED_FLAGS]::USERNAME_TARGET}
+      $false  {$Cred.Flags = [PsUtils.CredMan+CRED_FLAGS]::NONE}
+     }
+     $Cred.Type = Get-CredType $CredType
+     $Cred.TargetName = $Target
+     $Cred.UserName = $UserName
+     $Cred.AttributeCount = 0
+     $Cred.Persist = Get-CredPersist $CredPersist
+     $Cred.CredentialBlobSize = [Text.Encoding]::Unicode.GetBytes($Password).Length
+     $Cred.CredentialBlob = $Password
+     $Cred.Comment = $Comment
+
+     [Int] $Results = 0
+     try {
+      $Results = [PsUtils.CredMan]::CredWrite($Cred)
+     }
+     catch {
+      return $_
+     }
+
+     if(0 -ne $Results) {
+      [String] $Msg = "Failed to write to credentials store for target '$Target' using '$UserName', '$Password', '$Comment'"
+      [Management.ManagementException] $MgmtException = New-Object Management.ManagementException($Msg)
+      [Management.Automation.ErrorRecord] $ErrRcd = New-Object Management.Automation.ErrorRecord($MgmtException, $Results.ToString("X"), $ErrorCategory[$Results], $null)
+      return $ErrRcd
+     }
+     return $Results
+    }
+
+    #endregion
+
+    #region Cmd-Line functionality
+    function CredManMain {
+    #region Adding credentials
+     if ($AddCred) {
+      if([String]::IsNullOrEmpty($User) -or [String]::IsNullOrEmpty($Pass)) {
+       Write-Host "You must supply a user name and password (target URI is optional)."
+       return
+      }
+      # may be [Int32] or [Management.Automation.ErrorRecord]
+      [Object]$Results = Write-Creds $Target $User $Pass $Comment $CredType $CredPersist
+      if (0 -eq $Results) {
+       [Object]$Cred = Read-Creds $Target $CredType
+       if ($null -eq $Cred) {
+        Write-Host "Credentials for '$Target', '$User' was not found."
+        return
+       }
+       if ($Cred -is [Management.Automation.ErrorRecord]) {
+        return $Cred
+       }
+
+                New-Variable -Name "AddedCredentialsObject" -Value $(
+                    [pscustomobject][ordered]@{
+                        UserName    = $($Cred.UserName)
+                        Password    = $($Cred.CredentialBlob)
+                        Target      = $($Cred.TargetName.Substring($Cred.TargetName.IndexOf("=")+1))
+                        Updated     = "$([String]::Format('{0:yyyy-MM-dd HH:mm:ss}', $Cred.LastWritten.ToUniversalTime())) UTC"
+                        Comment     = $($Cred.Comment)
+                    }
+                )
+
+       return $AddedCredentialsObject
+      }
+      # will be a [Management.Automation.ErrorRecord]
+      return $Results
+     }
+    #endregion 
+
+    #region Removing credentials
+     if ($DelCred) {
+      if (-not $Target) {
+       Write-Host "You must supply a target URI."
+       return
+      }
+      # may be [Int32] or [Management.Automation.ErrorRecord]
+      [Object]$Results = Del-Creds $Target $CredType 
+      if (0 -eq $Results) {
+       Write-Host "Successfully deleted credentials for '$Target'"
+       return
+      }
+      # will be a [Management.Automation.ErrorRecord]
+      return $Results
+     }
+    #endregion
+
+    #region Reading selected credential
+     if ($GetCred) {
+      if(-not $Target) {
+       Write-Host "You must supply a target URI."
+       return
+      }
+      # may be [PsUtils.CredMan+Credential] or [Management.Automation.ErrorRecord]
+      [Object]$Cred = Read-Creds $Target $CredType
+      if ($null -eq $Cred) {
+       Write-Host "Credential for '$Target' as '$CredType' type was not found."
+       return
+      }
+      if ($Cred -is [Management.Automation.ErrorRecord]) {
+       return $Cred
+      }
+
+            New-Variable -Name "AddedCredentialsObject" -Value $(
+                [pscustomobject][ordered]@{
+                    UserName    = $($Cred.UserName)
+                    Password    = $($Cred.CredentialBlob)
+                    Target      = $($Cred.TargetName.Substring($Cred.TargetName.IndexOf("=")+1))
+                    Updated     = "$([String]::Format('{0:yyyy-MM-dd HH:mm:ss}', $Cred.LastWritten.ToUniversalTime())) UTC"
+                    Comment     = $($Cred.Comment)
+                }
+            )
+
+            return $AddedCredentialsObject
+     }
+    #endregion
+
+    #region Reading all credentials
+     if ($ShoCred) {
+      # may be [PsUtils.CredMan+Credential[]] or [Management.Automation.ErrorRecord]
+      [Object]$Creds = Enum-Creds
+      if ($Creds -split [Array] -and 0 -eq $Creds.Length) {
+       Write-Host "No Credentials found for $($Env:UserName)"
+       return
+      }
+      if ($Creds -is [Management.Automation.ErrorRecord]) {
+       return $Creds
+      }
+
+            $ArrayOfCredObjects = @()
+      foreach($Cred in $Creds) {
+                New-Variable -Name "AddedCredentialsObject" -Value $(
+                    [pscustomobject][ordered]@{
+                        UserName    = $($Cred.UserName)
+                        Password    = $($Cred.CredentialBlob)
+                        Target      = $($Cred.TargetName.Substring($Cred.TargetName.IndexOf("=")+1))
+                        Updated     = "$([String]::Format('{0:yyyy-MM-dd HH:mm:ss}', $Cred.LastWritten.ToUniversalTime())) UTC"
+                        Comment     = $($Cred.Comment)
+                    }
+                ) -Force
+
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Alias" -Value "$($Cred.TargetAlias)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "AttribCnt" -Value "$($Cred.AttributeCount)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Attribs" -Value "$($Cred.Attributes)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Flags" -Value "$($Cred.Flags)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "PwdSize" -Value "$($Cred.CredentialBlobSize)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Storage" -Value "$($Cred.Persist)"
+                $AddedCredentialsObject | Add-Member -MemberType NoteProperty -Name "Type" -Value "$($Cred.Type)"
+
+                $ArrayOfCredObjects +=, $AddedCredentialsObject
+      }
+      return $ArrayOfCredObjects
+     }
+    #endregion
+
+    #region Run basic diagnostics
+     if($RunTests) {
+      [PsUtils.CredMan]::Main()
+     }
+    #endregion
+    }
+    #endregion
+
+    CredManMain
+}
+
+
+<#
+    .SYNOPSIS
+        Create a new Git Repo on github.com.
+
+    .DESCRIPTION
+        See Synopsis.
+
+    .PARAMETER NewRepoLocalPath
+        TODO
+    
+    .PARAMETER NewRepoDescription
+        TODO
+
+    .PARAMETER GitIgnoreContent
+        TODO
+
+    .PARAMETER PublicOrPrivate
+        TODO
+
+    .PARAMETER GitHubUserName
+        TODO
+
+    .PARAMETER GitHubEmail
+        TODO
+
+    .PARAMETER AuthMethod
+        TODO
+
+    .PARAMETER ExistingSSHPrivateKeyPath
+        TODO
+
+    .PARAMETER PersonalAccessToken
+        TODO
+    
+    .EXAMPLE
+        # Launch PowerShell and...
+
+        $NewRepoParams = @{
+            GitHubUserName = "pldmgg"
+            GitHubEmail = "pldmgg@mykolab.com"
+            PersonalAccessToken = "2345678dsfghjk4567890"
+            NewRepoLocalPath = "$HOME\Documents\GitRepos\MyProject"
+            NewRepoDescription = "Does some really cool stuff"
+            PublicOrPrivate = "Private"
+        }
+
+        New-GitRepo @NewRepoParams
+
+#>
+function New-GitRepo {
+    [CmdletBinding(DefaultParameterSetName="https")]
     Param (
         [Parameter(Mandatory=$False)]
-        [ValidateSet("Windows","Linux")]
-        [string]$RemoteOSGuess = "Windows",
+        [string]$NewRepoLocalPath = $($(Get-Location).Path),
 
         [Parameter(Mandatory=$True)]
-        [string]$RemoteHostNameOrIP,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <RemoteHostName>\<User>
-        [string]$LocalUserName,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Domain'    
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string]$DomainUserName,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Local'    
-        )]
-        [securestring]$LocalPasswordSS,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Domain'
-        )]
-        [securestring]$DomainPasswordSS,
+        [string]$NewRepoDescription,
 
         [Parameter(Mandatory=$False)]
-        [string]$KeyFilePath
+        [string]$GitIgnoreContent,
+
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("Public","Private")]
+        [string]$PublicOrPrivate,
+
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubUserName = "pldmgg",
+
+        [Parameter(Mandatory=$False)]
+        [string]$GitHubEmail = "pldmgg@mykolab.com",
+
+        [Parameter(Mandatory=$False)]
+        [ValidateSet("https")]
+        [string]$AuthMethod = "https",
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='ssh'
+        )]
+        [string]$ExistingSSHPrivateKeyPath,
+
+        [Parameter(
+            Mandatory=$False,
+            ParameterSetName='http'
+        )]
+        [securestring]$PersonalAccessToken
     )
 
-    #region >> Prep
-
-    if (!$(Get-Command ssh -ErrorAction SilentlyContinue)) {
-        Write-Error "Unable to find 'ssh'! Please make sure it is installed and part of your Environment/System Path! Halting!"
-        $global:FunctionResult = "1"
-        return
+    if (!$GitHubUserName) {
+        $GitHubUserName = Read-Host -Prompt "Please enter your GitHub Username"
+    }
+    if (!$AuthMethod) {
+        $AuthMethod = Read-Host -Prompt "Please select the Authentication Method you would like to use. [https/ssh]"
     }
 
-    if ($KeyFilePath) {
-        if (!$(Test-Path $KeyFilePath)) {
-            Write-Error "Unable to find KeyFilePath '$KeyFilePath'! Halting!"
-            $global:FunctionResult = "1"
-            return
+    if ($AuthMethod -eq "https") {
+        if (!$PersonalAccessToken) {
+            $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
         }
 
-        if (!$LocalUserName -and !$DomainUserName) {
-            Write-Error "You must supply either -LocalUserName or -DomainUserName when using the -KeyFilePath parameter! Halting!"
-            $global:FunctionResult = "1"
-            return
+        # Convert SecureString to PlainText
+        $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+    }
+    if ($AuthMethod -eq "ssh") {
+        if (!$ExistingSSHPrivateKeyPath) {
+            if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
+                $ExistingSSHPrivateKeyPath = Read-Host -Prompt "Please enter the full path to your github_rsa ssh private key."
+            }
         }
-    }
-
-    try {
-        $RemoteHostNetworkInfo = ResolveHost -HostNameOrIP $RemoteHostNameOrIP -ErrorAction Stop
-    }
-    catch {
-        Write-Error $_
-        Write-Error "Unable to resolve '$RemoteHostNameOrIP'! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalPasswordSS -or $DomainPasswordSS -and $KeyFilePath) {
-        Write-Error "Please use EITHER -KeyFilePath OR -LocalPasswordSS/-DomainPasswordSS in order to ssh to $RemoteHostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalUserName) {
-        if ($($LocalUserName -split "\\")[0] -ne $RemoteHostNetworkInfo.HostName) {
-            $ErrMsg = "The HostName indicated by -LocalUserName (i.e. $($($LocalUserName -split "\\")[0]) is not the same as " +
-            "the HostName as determined by network resolution (i.e. $($RemoteHostNetworkInfo.HostName))! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if ($DomainUserName) {
-        if ($($DomainUserName -split "\\")[0] -ne $($RemoteHostNetworkInfo.Domain -split "\.")[0]) {
-            $ErrMsg = "The Domain indicated by -DomainUserName (i.e. '$($($DomainUserName -split "\\")[0])') is not the same as " +
-            "the Domain as determined by network resolution (i.e. '$($($RemoteHostNetworkInfo.Domain -split "\.")[0])')! Halting!"
-            Write-Error $ErrMsg
+        if (!$(Test-Path $ExistingSSHPrivateKeyPath)) {
+            Write-Error "Unable to find path to existing Private Key '$ExistingSSHPrivateKeyPath'! Halting!"
             $global:FunctionResult = "1"
             return
         }
     }
 
-    if ($LocalPasswordSS) {
-        $LocalPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($LocalPasswordSS))
-    }
-    If ($DomainPasswordSS) {
-        $DomainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($DomainPasswordSS))
+    if ($env:GitCmdLineConfigured -ne "True" -or ![bool]$(Get-Command git -ErrorAction SilentlyContinue)) {
+        $ConfigGitCmdLineSplatParams = @{
+            GitHubUserName      = $GitHubUserName
+            GitHubEmail         = $GitHubEmail
+            AuthMethod          = $AuthMethod
+        }
+        if ($AuthMethod -eq "https") {
+            $ConfigGitCmdLineSplatParams.Add("PersonalAccessToken",$PersonalAccessToken)
+        }
+        if ($AuthMethod -eq "ssh") {
+            $ConfigGitCmdLineSplatParams.Add("ExistingSSHPrivateKeyPath",$ExistingSSHPrivateKeyPath)
+        }
+
+        Configure-GitCmdLine @ConfigGitCmdLineSplatParams
     }
 
-    if (!$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT") {
-        try {
-            if ($(Get-Module -ListAvailable).Name -notcontains 'WinSSH') {$null = Install-Module WinSSH -ErrorAction Stop}
-            if ($(Get-Module).Name -notcontains 'WinSSH') {$null = Import-Module WinSSH -ErrorAction Stop}
-            Import-Module "$($(Get-Module WinSSH).ModuleBase)\Await\Await.psd1" -ErrorAction Stop
+    $NewRepoName = $NewRepoLocalPath | Split-Path -Leaf
+
+    if ($AuthMethod -eq "https") {
+        $Headers = @{
+            Authorization = "token $PersonalAccessTokenPT"
         }
-        catch {
-            Write-Error $_
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos").Name
+        
+        # Make Sure $NewRepoName is Unique
+        $FinalNewRepoName = NewUniqueString -ArrayOfStrings $PublicAndPrivateRepos -PossibleNewUniqueString $NewRepoName
+    }
+    if ($AuthMethod -eq "ssh") {
+        #Placeholder
+    }
+
+    if ($FinalNewRepoName -ne $NewRepoName) {
+        Write-Warning "A repo with the Name '$NewRepoName' already exists! Final Repo Name will be '$FinalNewRepoName'"
+        $ContinuePrompt = Read-Host -Prompt "Are you sure you want to create a new Git Repos with the name '$FinalNewRepoName'? [Yes\No]"
+        while ($ContinuePrompt -notmatch "Yes|yes|Y|y|No|no|N|n") {
+            Write-Host "'$ContinuePrompt' is not a valid option. Please enter 'Yes' or 'No'" -ForegroundColor Yellow
+            $ContinuePrompt = Read-Host -Prompt "Are you sure you want to create a new Git Repos with the name '$FinalNewRepoName'? [Yes\No]"
+        }
+
+        if ($ContinuePrompt -notmatch "Yes|yes|Y|y") {
+            Write-Error "User chose not to proceed. Halting!"
             $global:FunctionResult = "1"
             return
         }
 
-        try {
-            $null = Stop-AwaitSession
-        }
-        catch {
-            Write-Verbose $_.Exception.Message
-        }
-    }
-
-    if ($PSVersionTable.Platform -eq "Unix") {
-        # Determine if we have the required Linux commands
-        [System.Collections.ArrayList]$LinuxCommands = @(
-            "echo"
-            "expect"
-        )
-        [System.Collections.ArrayList]$CommandsNotPresent = @()
-        foreach ($CommandName in $LinuxCommands) {
-            $CommandCheckResult = command -v $CommandName
-            if (!$CommandCheckResult) {
-                $null = $CommandsNotPresent.Add($CommandName)
-            }
-        }
-
-        if ($CommandsNotPresent.Count -gt 0) {
-            [System.Collections.ArrayList]$FailedInstalls = @()
-            if ($CommandsNotPresent -contains "echo") {
-                try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "coreutils" -CommandName "echo"
-                }
-                catch {
-                    $null = $FailedInstalls.Add("coreutils")
-                }
-            }
-            if ($CommandsNotPresent -contains "expect") {
-                try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "expect" -CommandName "expect"
-                }
-                catch {
-                    $null = $FailedInstalls.Add("expect")
-                }
-            }
-    
-            if ($FailedInstalls.Count -gt 0) {
-                Write-Error "The following Linux packages are required, but were not able to be installed:`n$($FailedInstalls -join "`n")`nHalting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        [System.Collections.ArrayList]$CommandsNotPresent = @()
-        foreach ($CommandName in $LinuxCommands) {
-            $CommandCheckResult = command -v $CommandName
-            if (!$CommandCheckResult) {
-                $null = $CommandsNotPresent.Add($CommandName)
-            }
-        }
-    
-        if ($CommandsNotPresent.Count -gt 0) {
-            Write-Error "The following Linux commands are required, but not present on $env:ComputerName:`n$($CommandsNotPresent -join "`n")`nHalting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    $TrySSHExe = $False
-
-    #endregion >> Prep
-    
-    if (!$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT") {
-        if ($RemoteOSGuess -eq "Windows") {
-            if ($LocalUserName) {
-                $FullUserName = $LocalUserName
-            }
-            if ($DomainUserName) {
-                $FullUserName = $DomainUserName
-            }
-
-            if ($RemoteHostNetworkInfo.FQDN -match "unknown") {
-                $HostNameValue = @(
-                    $RemoteHostNetworkInfo.IPAddressList | Where-Object {$_ -notmatch "^169"}
-                )[0]
-            }
-            else {
-                $HostNameValue = $RemoteHostNetworkInfo.FQDN
-            }
-
-            # Install pwsh if it isn't already
-            if (!$(Get-Command pwsh -ErrorAction SilentlyContinue)) {
-                try {
-                    if ($(Get-Module -ListAvailable).Name -notcontains 'ProgramManagement') {$null = Install-Module ProgramManagement -ErrorAction Stop}
-                    if ($(Get-Module).Name -notcontains 'ProgramManagement') {$null = Import-Module ProgramManagement -ErrorAction Stop}
-                    $InstallPwshResult = Install-Program -ProgramName powershell-core -CommandName pwsh.exe
-                }
-                catch {
-                    Write-Error $_
-                    $global:FunctionResult = "1"
-                    return
-                }
-            }
-
-            # This is basically what we're going for with the below string manipulation:
-            #   & pwsh -c {Invoke-Command -HostName zerowin16sshb -KeyFilePath "$HOME\.ssh\zeroadmin_090618-cert.pub" -ScriptBlock {[pscustomobject]@{Output = "ConnectionSuccessful"}} | ConvertTo-Json}
-            $PwshRemoteScriptBlockStringArray = @(
-                '[pscustomobject]@{'
-                '    Output = "ConnectionSuccessful"'
-                '    Platform = $PSVersionTable.Platform'
-                '    DistroInfo = $PSVersionTable.OS'
-                '    Hostnamectl = hostnamectl'
-                '}'
-            ) | foreach {"    $_"}
-            $PwshRemoteScriptBlockString = $PwshRemoteScriptBlockStringArray -join "`n"
-            [System.Collections.ArrayList]$PwshInvCmdStringArray = @(
-                'Invoke-Command'
-                '-HostName'
-                $HostNameValue
-                '-UserName'
-                $FullUserName
-            )
-            if ($KeyFilePath) {
-                $null = $PwshInvCmdStringArray.Add('-KeyFilePath')
-                $null = $PwshInvCmdStringArray.Add("'$KeyFilePath'")
-            }
-            $null = $PwshInvCmdStringArray.Add('-HideComputerName')
-            $null = $PwshInvCmdStringArray.Add("-ScriptBlock {`n$PwshRemoteScriptBlockString`n}")
-            $null = $PwshInvCmdStringArray.Add('|')
-            $null = $PwshInvCmdStringArray.Add('ConvertTo-Json')
-            $PwshInvCmdString = $PwshInvCmdStringArray -join " "
-            $PwshCmdStringArray = @(
-                '&'
-                '"' + $(Get-Command pwsh).Source + '"'
-                "-c {$PwshInvCmdString}"
-            )
-            $PwshCmdString = $script:PwshCmdString = $PwshCmdStringArray -join " "
-
-            #region >> Await Attempt Number 1 of 2
-            
-            $PSAwaitProcess = $null
-            $null = Start-AwaitSession
-            Start-Sleep -Seconds 1
-            $null = Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
-            $PSAwaitProcess = $($(Get-Process | Where-Object {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
-            Start-Sleep -Seconds 1
-            $null = Send-AwaitCommand "`$env:Path = '$env:Path'"
-            Start-Sleep -Seconds 1
-            $null = Send-AwaitCommand -Command $([scriptblock]::Create($PwshCmdString))
-            Start-Sleep -Seconds 5
-
-            # This will either not prompt at all, prompt to accept the RemoteHost's RSA Host Key, or prompt for a password
-            $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-            [System.Collections.ArrayList]$CheckForExpectedResponses = @()
-            $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-            $Counter = 0
-            while (![bool]$($($CheckForExpectedResponses -split "`n") -match [regex]::Escape("Are you sure you want to continue connecting (yes/no)?")) -and
-            ![bool]$($($CheckForExpectedResponses -split "`n") -match "assword.*:") -and 
-            ![bool]$($($CheckForExpectedResponses -split "`n") -match "^}") -and $Counter -le 30
-            ) {
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]") {
-                    break
-                }
-                Start-Sleep -Seconds 1
-                $Counter++
-            }
-            if ($Counter -eq 31) {
-                Write-Verbose "SSH via 'pwsh -c {Invoke-Command ...}' timed out!"
-                
-                if ($PSAwaitProcess.Id) {
-                    try {
-                        $null = Stop-AwaitSession
-                    }
-                    catch {
-                        if ($PSAwaitProcess.Id -eq $PID) {
-                            Write-Error "The PSAwaitSession never spawned! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                            }
-                            $Counter = 0
-                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                Start-Sleep -Seconds 1
-                                $Counter++
-                            }
-                        }
-                    }
-                }
-            }
-            #endregion >> Await Attempt 1 of 2
-
-            $CheckResponsesOutput = $CheckForExpectedResponses | foreach {$_ -split "`n"}
-            # Make sure we didn't already throw an error related to the Remote Host not having PowerShell Remoting configured
-            if ($CheckResponsesOutput -match "background process reported an error") {
-                $TrySSHExe = $True
-            }
-
-            #region >> Await Attempt 2 of 2
-            
-            # If $CheckResponsesOutput contains the string "must be greater than zero", then something broke with the Await Module.
-            # Most of the time, just trying again resolves any issues
-            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -and
-            ![bool]$($CheckResponsesOutput -match "background process reported an error")) {
-                if ($PSAwaitProcess.Id) {
-                    try {
-                        $null = Stop-AwaitSession
-                    }
-                    catch {
-                        if ($PSAwaitProcess.Id -eq $PID) {
-                            Write-Error "The PSAwaitSession never spawned! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                            }
-                            $Counter = 0
-                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                Start-Sleep -Seconds 1
-                                $Counter++
-                            }
-                        }
-                    }
-                }
-                
-                $PSAwaitProcess = $null
-                $null = Start-AwaitSession
-                Start-Sleep -Seconds 1
-                $null = Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
-                $PSAwaitProcess = $($(Get-Process | Where-Object {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
-                Start-Sleep -Seconds 1
-                $null = Send-AwaitCommand "`$env:Path = '$env:Path'"
-                Start-Sleep -Seconds 1
-                $null = Send-AwaitCommand -Command $([scriptblock]::Create($PwshCmdString))
-                Start-Sleep -Seconds 5
-
-                # This will either not prompt at all, prompt to accept the RemoteHost's RSA Host Key, or prompt for a password
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                [System.Collections.ArrayList]$CheckForExpectedResponses = @()
-                $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                $Counter = 0
-                while (![bool]$($SuccessOrAcceptHostKeyOrPwdPrompt -match [regex]::Escape("Are you sure you want to continue connecting (yes/no)?")) -and
-                ![bool]$($SuccessOrAcceptHostKeyOrPwdPrompt -match "assword.*:") -and 
-                ![bool]$($SuccessOrAcceptHostKeyOrPwdPrompt -match "^}") -and $Counter -le 30
-                ) {
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                    $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    Start-Sleep -Seconds 1
-                    $Counter++
-                }
-                if ($Counter -eq 31) {
-                    Write-Verbose "SSH via 'pwsh -c {Invoke-Command ...}' timed out!"
-                    
-                    if ($PSAwaitProcess.Id) {
-                        try {
-                            $null = Stop-AwaitSession
-                        }
-                        catch {
-                            if ($PSAwaitProcess.Id -eq $PID) {
-                                Write-Error "The PSAwaitSession never spawned! Halting!"
-                                $global:FunctionResult = "1"
-                                return
-                            }
-                            else {
-                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                }
-                                $Counter = 0
-                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                    Start-Sleep -Seconds 1
-                                    $Counter++
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            #endregion >> Await Attempt 2 of 2
-
-            $CheckResponsesOutput = $CheckForExpectedResponses | foreach {$_ -split "`n"}
-            # Make sure we didn't already throw an error related to the Remote Host not having PowerShell Remoting configured
-            if ($CheckResponsesOutput -match "background process reported an error") {
-                $TrySSHExe = $True
-            }
-
-            # At this point, if we don't have the expected output, we need to fail
-            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -or
-            $CheckResponsesOutput -match "background process reported an error") {
-                if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]") {
-                    Write-Verbose "Something went wrong with the PowerShell Await Module!"
-                }
-                if ($CheckResponsesOutput -match "background process reported an error") {
-                    Write-Verbose "Please check your credentials!"
-                }
-
-                #Write-Host "Await ScriptBlock (`$PwshCmdString) was:`n    $PwshCmdString"
-
-                if ($PSAwaitProcess.Id) {
-                    try {
-                        $null = Stop-AwaitSession
-                    }
-                    catch {
-                        if ($PSAwaitProcess.Id -eq $PID) {
-                            Write-Error "The PSAwaitSession never spawned! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                            }
-                            $Counter = 0
-                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                Start-Sleep -Seconds 1
-                                $Counter++
-                            }
-                        }
-                    }
-                }
-                $TrySSHExe = $True
-            }
-
-            # Now we should either have a prompt to accept the host key, a prompt for a password, or it already worked...
-
-            if ($CheckResponsesOutput -match [regex]::Escape("Are you sure you want to continue connecting (yes/no)?")) {
-                $null = Send-AwaitCommand "yes"
-                Start-Sleep -Seconds 3
-                
-                # This will either not prompt at all or prompt for a password
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                [System.Collections.ArrayList]$CheckExpectedSendYesOutput = @()
-                $null = $CheckExpectedSendYesOutput.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                $Counter = 0
-                while (![bool]$($($CheckExpectedSendYesOutput -split "`n") -match "assword.*:") -and 
-                ![bool]$($($CheckExpectedSendYesOutput -split "`n") -match "^}") -and $Counter -le 30
-                ) {
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                    $null = $CheckExpectedSendYesOutput.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    Start-Sleep -Seconds 1
-                    $Counter++
-                }
-                if ($Counter -eq 31) {
-                    Write-Error "Sending 'yes' to accept the ssh host key timed out!"
-                    $global:FunctionResult = "1"
-                    
-                    if ($PSAwaitProcess.Id) {
-                        try {
-                            $null = Stop-AwaitSession
-                        }
-                        catch {
-                            if ($PSAwaitProcess.Id -eq $PID) {
-                                Write-Error "The PSAwaitSession never spawned! Halting!"
-                                $global:FunctionResult = "1"
-                                return
-                            }
-                            else {
-                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                }
-                                $Counter = 0
-                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                    Start-Sleep -Seconds 1
-                                    $Counter++
-                                }
-                            }
-                        }
-                    }
-
-                    return
-                }
-
-                $CheckSendYesOutput = $CheckExpectedSendYesOutput | foreach {$_ -split "`n"}
-                
-                if ($CheckSendYesOutput -match "assword.*:") {
-                    if ($LocalPassword) {
-                        $null = Send-AwaitCommand $LocalPassword
-                    }
-                    if ($DomainPassword) {
-                        $null = Send-AwaitCommand $DomainPassword
-                    }
-                    Start-Sleep -Seconds 3
-
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                    [System.Collections.ArrayList]$JsonOutputPrep = @()
-                    $null = $JsonOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    $Counter = 0
-                    while (![bool]$($($JsonOutputPrep -split "`n") -match "^}") -and $Counter -le 30) {
-                        $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                        if (![System.String]::IsNullOrWhiteSpace($SuccessOrAcceptHostKeyOrPwdPrompt)) {
-                            $null = $JsonOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                        }
-                        Start-Sleep -Seconds 1
-                        $Counter++
-                    }
-                    if ($Counter -eq 31) {
-                        Write-Verbose "Sending the user's password timed out!"
-
-                        if ($PSAwaitProcess.Id) {
-                            try {
-                                $null = Stop-AwaitSession
-                            }
-                            catch {
-                                if ($PSAwaitProcess.Id -eq $PID) {
-                                    Write-Error "The PSAwaitSession never spawned! Halting!"
-                                    $global:FunctionResult = "1"
-                                    return
-                                }
-                                else {
-                                    if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                        Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                    }
-                                    $Counter = 0
-                                    while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                        Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                        Start-Sleep -Seconds 1
-                                        $Counter++
-                                    }
-                                }
-                            }
-                        }
-
-                        $TrySSHExe = $True
-                    }
-
-                    [System.Collections.ArrayList][array]$JsonOutputPrep = $($JsonOutputPrep | foreach {$_ -split "`n"}) | Where-Object {$_ -notmatch "^PS "}
-                    if (![bool]$($JsonOutputPrep[0] -match "^{")) {
-                        $null = $JsonOutputPrep.Insert(0,'{')
-                    }
-                }
-            }
-            elseif ($CheckResponsesOutput -match "assword.*:") {
-                if ($LocalPassword) {
-                    $null = Send-AwaitCommand $LocalPassword
-                }
-                if ($DomainPassword) {
-                    $null = Send-AwaitCommand $DomainPassword
-                }
-                Start-Sleep -Seconds 3
-
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                [System.Collections.ArrayList]$JsonOutputPrep = @()
-                $null = $JsonOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                $Counter = 0
-                while (![bool]$($($JsonOutputPrep -split "`n") -match "^}") -and $Counter -le 30) {
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                    if (![System.String]::IsNullOrWhiteSpace($SuccessOrAcceptHostKeyOrPwdPrompt)) {
-                        $null = $JsonOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    }
-                    Start-Sleep -Seconds 1
-                    $Counter++
-                }
-                if ($Counter -eq 31) {
-                    Write-Verbose "Sending the user's password timed out!"
-
-                    if ($PSAwaitProcess.Id) {
-                        try {
-                            $null = Stop-AwaitSession
-                        }
-                        catch {
-                            if ($PSAwaitProcess.Id -eq $PID) {
-                                Write-Error "The PSAwaitSession never spawned! Halting!"
-                                $global:FunctionResult = "1"
-                                return
-                            }
-                            else {
-                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                }
-                                $Counter = 0
-                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                    Start-Sleep -Seconds 1
-                                    $Counter++
-                                }
-                            }
-                        }
-                    }
-
-                    $TrySSHExe = $True
-                }
-
-                [System.Collections.ArrayList][array]$JsonOutputPrep = $($JsonOutputPrep | foreach {$_ -split "`n"}) | Where-Object {$_ -notmatch "^PS "}
-                if (![bool]$($JsonOutputPrep[0] -match "^{")) {
-                    $null = $JsonOutputPrep.Insert(0,'{')
-                }
-            }
-            else {
-                [System.Collections.ArrayList]$JsonOutputPrep = $($CheckResponsesOutput | foreach {$_ -split "`n"}) | Where-Object {
-                    $_ -notmatch "^PS " -and ![System.String]::IsNullOrWhiteSpace($_)
-                }
-                $EndOfInputLineContent = $JsonOutputPrep -match [regex]::Escape("ConvertTo-Json}")
-                $JsonOutputIndex = $JsonOutputPrep.IndexOf($EndOfInputLineContent) + 1
-
-                [System.Collections.ArrayList]$JsonOutputPrep = $JsonOutputPrep[$JsonOutputIndex..$($JsonOutputPrep.Count-1)]
-
-                if (![bool]$($JsonOutputPrep[0] -match "^{")) {
-                    $null = $JsonOutputPrep.Insert(0,'{')
-                }
-            }
-
-            if (!$TrySSHExe) {
-                $IndexesOfOpenBracket = for ($i=0; $i -lt $JsonOutputPrep.Count; $i++) {
-                    if ($JsonOutputPrep[$i] -match "^{") {
-                        $i
-                    }
-                }
-                $LastIndexOfOpenBracket = $($IndexesOfOpenBracket | Measure-Object -Maximum).Maximum
-                $IndexesOfCloseBracket = for ($i=0; $i -lt $JsonOutputPrep.Count; $i++) {
-                    if ($JsonOutputPrep[$i] -match "^}") {
-                        $i
-                    }
-                }
-                $LastIndexOfCloseBracket = $($IndexesOfCloseBracket | Measure-Object -Maximum).Maximum
-                [System.Collections.ArrayList]$JsonOutputPrep = $JsonOutputPrep[$LastIndexOfOpenBracket..$LastIndexOfCloseBracket] | foreach {$_ -split "`n"}
-                if (![bool]$($JsonOutputPrep[0] -match "^{")) {
-                    $null = $JsonOutputPrep.Insert(0,'{')
-                }
-
-                $FinalJson = $JsonOutputPrep | foreach {if (![System.String]::IsNullOrWhiteSpace($_)) {$_.Trim()}}
-
-                try {
-                    $SSHCheckAsJson = $FinalJson | ConvertFrom-Json
-                }
-                catch {
-                    $TrySSHExe = $True
-                }
-            }
-
-            if ($PSAwaitProcess.Id) {
-                try {
-                    $null = Stop-AwaitSession
-                }
-                catch {
-                    if ($PSAwaitProcess.Id -eq $PID) {
-                        Write-Error "The PSAwaitSession never spawned! Halting!"
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                    else {
-                        if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                            Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                        }
-                        $Counter = 0
-                        while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                            Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                            Start-Sleep -Seconds 1
-                            $Counter++
-                        }
-                    }
-                }
-            }
-
-            if ($SSHCheckAsJson.Output -ne "ConnectionSuccessful") {
-                $TrySSHExe = $True
-            }
-
-            # TODO: Remove this after testing finished
-            #$SSHCheckAsJson
-            
-            # NOTE: The below $ShellDetermination refers to the shell you will (probably) end up in if you use an ssh command, NOT PSRemoting
-            if ($SSHCheckAsJson.Output -eq "ConnectionSuccessful") {
-                if ($SSHCheckAsJson.Platform -eq "Win32NT") {
-                    $OSDetermination = "Windows"
-                    $ShellDetermination = "pwsh"
-                }
-                elseif ($SSHCheckAsJson.DistroInfo -match "Darwin") {
-                    $OSDetermination = "MacOS"
-                    $ShellDetermination = "pwsh"
-                    
-                }
-                else {
-                    $OSDetermination = "Linux"
-                    $ShellDetermination = "pwsh"
-                }
-
-                [System.Collections.ArrayList]$OSVersionInfo = @()
-                if ($SSHCheckAsJson.DistroInfo) {
-                    $null = $OSVersionInfo.Add($SSHCheckAsJson.DistroInfo)
-                }
-                if ($SSHCheckAsJson.Hostnamectl) {
-                    $null = $OSVersionInfo.Add($SSHCheckAsJson.Hostnamectl)
-                }
-
-                $FinalOutput = [pscustomobject]@{
-                    OS              = $OSDetermination
-                    Shell           = $ShellDetermination
-                    OSVersionInfo   = $OSVersionInfo
-                    AllOutput       = $SSHCheckAsJson
-                }
-            }
-        }
-
-        if ($RemoteOSGuess -eq "Linux" -or $TrySSHExe) {
-            if ($LocalUserName) {
-                $FullUserName = $($LocalUserName -split "\\")[-1]
-            }
-            if ($DomainUserName) {
-                $DomainNameShort = $($DomainUserName -split "\\")[0]
-                $FullUserName = $($DomainUserName -split "\\")[-1]
-            }
-
-            $HostNameValue = $RHostIP = @(
-                $RemoteHostNetworkInfo.IPAddressList | Where-Object {$_ -notmatch "^169"}
-            )[0]
-
-            # This is what we're going for:
-            #     ssh -t pdadmin@192.168.2.10 "echo 'ConnectionSuccessful'"
-            [System.Collections.ArrayList]$SSHCmdStringArray = @(
-                'ssh'
-            )
-            if ($KeyFilePath) {
-                $null = $SSHCmdStringArray.Add("-i")
-                $null = $SSHCmdStringArray.Add("'" + $KeyFilePath + "'")
-            }
-            if ($LocalUserName) {
-                $null = $SSHCmdStringArray.Add("$FullUserName@$HostNameValue")
-            }
-            if ($DomainUserName) {
-                $null = $SSHCmdStringArray.Add("$FullUserName@$DomainNameShort@$HostNameValue")
-            }
-            $Bytes = [System.Text.Encoding]::Unicode.GetBytes('$PSVersionTable | ConvertTo-Json')
-            $EncodedCommandPSVerTable = [Convert]::ToBase64String($Bytes)
-            $Bytes = [System.Text.Encoding]::Unicode.GetBytes('"Cim OS Info: " + $(Get-CimInstance Win32_OperatingSystem).Caption')
-            $EncodedCommandWinOSCim = [Convert]::ToBase64String($Bytes)
-            $SSHScript = @(
-                "echo ConnectionSuccessful"
-                "echo 111RootDirInfo111"
-                "cd /"
-                "dir"
-                "echo 111ProcessInfo111"
-                'Get-Process -Id `$PID'
-                "echo 111PwshJson111"
-                "pwsh -NoProfile -EncodedCommand $EncodedCommandPSVerTable"
-                "echo 111PowerShellCimInfo111"
-                "powershell -NoProfile -EncodedCommand $EncodedCommandWinOSCim"
-                "echo 111UnameOutput111"
-                "uname -a"
-                "echo 111HostnamectlOutput111"
-                "hostnamectl"
-            )
-            $SSHScript = $SSHScript -join "; "
-            $null = $SSHCmdStringArray.Add($('"' + $SSHScript + '"'))
-            # NOTE: The below -replace regex string removes garbage escape sequences like: [116;1H
-            $SSHCmdString = $script:SSHCmdString = '@($(' + $($SSHCmdStringArray -join " ") + ') -replace "\e\[(\d+;)*(\d+)?[ABCDHJKfmsu]","") 2>$null'
-
-            #Write-Host "`$SSHCmdString is:`n    $SSHCmdString"
-
-            #region >> Await Attempt Number 1 of 2
-            
-            $PSAwaitProcess = $null
-            $null = Start-AwaitSession
-            Start-Sleep -Seconds 1
-            $null = Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
-            $PSAwaitProcess = $($(Get-Process | Where-Object {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
-            Start-Sleep -Seconds 1
-            $null = Send-AwaitCommand "`$env:Path = '$env:Path'"
-            Start-Sleep -Seconds 1
-            $null = Send-AwaitCommand -Command $([scriptblock]::Create($SSHCmdString))
-            Start-Sleep -Seconds 5
-
-            # This will either not prompt at all, prompt to accept the RemoteHost's RSA Host Key, or prompt for a password
-            $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-            [System.Collections.ArrayList]$CheckForExpectedResponses = @()
-            $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-            $Counter = 0
-            while (![bool]$($($CheckForExpectedResponses -split "`n") -match [regex]::Escape("Are you sure you want to continue connecting (yes/no)?")) -and
-            ![bool]$($($CheckForExpectedResponses -split "`n") -match "assword.*:") -and 
-            ![bool]$($($CheckForExpectedResponses -split "`n") -match "^111HostnamectlOutput111") -and $Counter -le 30
-            ) {
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]") {
-                    break
-                }
-                Start-Sleep -Seconds 1
-                $Counter++
-            }
-            if ($Counter -eq 31) {
-                Write-Verbose "SSH via '$($SSHCmdStringArray -join " ")' timed out!"
-
-                if ($PSAwaitProcess.Id) {
-                    try {
-                        $null = Stop-AwaitSession
-                    }
-                    catch {
-                        if ($PSAwaitProcess.Id -eq $PID) {
-                            Write-Error "The PSAwaitSession never spawned! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                            }
-                            $Counter = 0
-                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                Start-Sleep -Seconds 1
-                                $Counter++
-                            }
-                        }
-                    }
-                    $PSAwaitProcess = $null
-                }
-            }
-            #endregion >> Await Attempt 1 of 2
-
-            $CheckResponsesOutput = $CheckForExpectedResponses | foreach {$_ -split "`n"}
-            
-            #region >> Await Attempt 2 of 2
-            
-            # If $CheckResponsesOutput contains the string "must be greater than zero", then something broke with the Await Module.
-            # Most of the time, just trying again resolves any issues
-            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -or
-            $CheckResponsesOutput -match "background process reported an error") {
-                if ($PSAwaitProcess.Id) {
-                    try {
-                        $null = Stop-AwaitSession
-                    }
-                    catch {
-                        if ($PSAwaitProcess.Id -eq $PID) {
-                            Write-Error "The PSAwaitSession never spawned! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                            }
-                            $Counter = 0
-                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                Start-Sleep -Seconds 1
-                                $Counter++
-                            }
-                        }
-                    }
-                }
-                
-                $PSAwaitProcess = $null
-                $null = Start-AwaitSession
-                Start-Sleep -Seconds 1
-                $null = Send-AwaitCommand '$host.ui.RawUI.WindowTitle = "PSAwaitSession"'
-                $PSAwaitProcess = $($(Get-Process | Where-Object {$_.Name -eq "powershell"}) | Sort-Object -Property StartTime -Descending)[0]
-                Start-Sleep -Seconds 1
-                $null = Send-AwaitCommand "`$env:Path = '$env:Path'"
-                Start-Sleep -Seconds 1
-                $null = Send-AwaitCommand -Command $([scriptblock]::Create($SSHCmdString))
-                Start-Sleep -Seconds 5
-
-                # This will either not prompt at all, prompt to accept the RemoteHost's RSA Host Key, or prompt for a password
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                [System.Collections.ArrayList]$CheckForExpectedResponses = @()
-                $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                $Counter = 0
-                while (![bool]$($SuccessOrAcceptHostKeyOrPwdPrompt -match [regex]::Escape("Are you sure you want to continue connecting (yes/no)?")) -and
-                ![bool]$($SuccessOrAcceptHostKeyOrPwdPrompt -match "assword.*:") -and 
-                ![bool]$($SuccessOrAcceptHostKeyOrPwdPrompt -match "^111HostnamectlOutput111") -and $Counter -le 30
-                ) {
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                    $null = $CheckForExpectedResponses.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    Start-Sleep -Seconds 1
-                    $Counter++
-                }
-                if ($Counter -eq 31) {
-                    Write-Error "SSH via '$($SSHCmdStringArray -join " ")' timed out!"
-                    $global:FunctionResult = "1"
-
-                    $CheckForExpectedResponses
-
-                    if ($PSAwaitProcess.Id) {
-                        try {
-                            $null = Stop-AwaitSession
-                        }
-                        catch {
-                            if ($PSAwaitProcess.Id -eq $PID) {
-                                Write-Error "The PSAwaitSession never spawned! Halting!"
-                                $global:FunctionResult = "1"
-                                return
-                            }
-                            else {
-                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                }
-                                $Counter = 0
-                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                    Start-Sleep -Seconds 1
-                                    $Counter++
-                                }
-                            }
-                        }
-                    }
-
-                    return
-                }
-            }
-
-            #endregion >> Await Attempt 2 of 2
-
-            $CheckResponsesOutput = $CheckForExpectedResponses | foreach {$_ -split "`n"}
-
-            # At this point, if we don't have the expected output, we need to fail
-            if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]" -or
-            $CheckResponsesOutput -match "background process reported an error") {
-                if ($CheckResponsesOutput -match "must be greater than zero" -or @($CheckResponsesOutput)[-1] -notmatch "[a-zA-Z]") {
-                    Write-Error "Something went wrong with the PowerShell Await Module! Halting!"
-                }
-                if ($CheckResponsesOutput -match "background process reported an error") {
-                    Write-Error "Please check your credentials! Halting!"
-                }
-                $global:FunctionResult = "1"
-
-                #Write-Host "Await ScriptBlock (`$SSHCmdString) was:`n    $SSHCmdString"
-
-                if ($PSAwaitProcess.Id) {
-                    try {
-                        $null = Stop-AwaitSession
-                    }
-                    catch {
-                        if ($PSAwaitProcess.Id -eq $PID) {
-                            Write-Error "The PSAwaitSession never spawned! Halting!"
-                            $global:FunctionResult = "1"
-                            return
-                        }
-                        else {
-                            if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                            }
-                            $Counter = 0
-                            while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                Start-Sleep -Seconds 1
-                                $Counter++
-                            }
-                        }
-                    }
-                }
-
-                return
-            }
-
-            # Now we should either have a prompt to accept the host key, a prompt for a password, or it already worked...
-
-            if ($CheckResponsesOutput -match [regex]::Escape("Are you sure you want to continue connecting (yes/no)?")) {
-                $null = Send-AwaitCommand "yes"
-                Start-Sleep -Seconds 3
-                
-                # This will either not prompt at all or prompt for a password
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                [System.Collections.ArrayList]$CheckExpectedSendYesOutput = @()
-                $null = $CheckExpectedSendYesOutput.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                $Counter = 0
-                while (![bool]$($($CheckExpectedSendYesOutput -split "`n") -match "assword.*:") -and 
-                ![bool]$($($CheckExpectedSendYesOutput -split "`n") -match "^111HostnamectlOutput111") -and $Counter -le 30
-                ) {
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                    $null = $CheckExpectedSendYesOutput.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    Start-Sleep -Seconds 1
-                    $Counter++
-                }
-                if ($Counter -eq 31) {
-                    Write-Error "Sending 'yes' to accept the ssh host key timed out!"
-                    $global:FunctionResult = "1"
-                    
-                    if ($PSAwaitProcess.Id) {
-                        try {
-                            $null = Stop-AwaitSession
-                        }
-                        catch {
-                            if ($PSAwaitProcess.Id -eq $PID) {
-                                Write-Error "The PSAwaitSession never spawned! Halting!"
-                                $global:FunctionResult = "1"
-                                return
-                            }
-                            else {
-                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                }
-                                $Counter = 0
-                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                    Start-Sleep -Seconds 1
-                                    $Counter++
-                                }
-                            }
-                        }
-                    }
-
-                    return
-                }
-
-                $CheckSendYesOutput = $CheckExpectedSendYesOutput | foreach {$_ -split "`n"}
-                
-                if ($CheckSendYesOutput -match "assword.*:") {
-                    if ($LocalPassword) {
-                        $null = Send-AwaitCommand $LocalPassword
-                    }
-                    if ($DomainPassword) {
-                        $null = Send-AwaitCommand $DomainPassword
-                    }
-                    Start-Sleep -Seconds 3
-
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                    [System.Collections.ArrayList]$SSHOutputPrep = @()
-                    $null = $SSHOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    $Counter = 0
-                    while (![bool]$($($SSHOutputPrep -split "`n") -match "^ConnectionSuccessful") -and $Counter -le 30) {
-                        $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                        if (![System.String]::IsNullOrWhiteSpace($SuccessOrAcceptHostKeyOrPwdPrompt)) {
-                            $null = $SSHOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                        }
-                        Start-Sleep -Seconds 1
-                        $Counter++
-                    }
-                    if ($Counter -eq 31) {
-                        Write-Error "Sending the user's password timed out!"
-                        $global:FunctionResult = "1"
-
-                        $SSHOutputPrep
-
-                        if ($PSAwaitProcess.Id) {
-                            try {
-                                $null = Stop-AwaitSession
-                            }
-                            catch {
-                                if ($PSAwaitProcess.Id -eq $PID) {
-                                    Write-Error "The PSAwaitSession never spawned! Halting!"
-                                    $global:FunctionResult = "1"
-                                    return
-                                }
-                                else {
-                                    if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                        Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                    }
-                                    $Counter = 0
-                                    while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                        Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                        Start-Sleep -Seconds 1
-                                        $Counter++
-                                    }
-                                }
-                            }
-                        }
-
-                        return
-                    }
-                }
-            }
-            elseif ($CheckResponsesOutput -match "assword.*:") {
-                if ($LocalPassword) {
-                    $null = Send-AwaitCommand $LocalPassword
-                }
-                if ($DomainPassword) {
-                    $null = Send-AwaitCommand $DomainPassword
-                }
-                Start-Sleep -Seconds 3
-
-                $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-
-                [System.Collections.ArrayList]$SSHOutputPrep = @()
-                $null = $SSHOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                $Counter = 0
-                while (![bool]$($($SSHOutputPrep -split "`n") -match "^ConnectionSuccessful") -and $Counter -le 30) {
-                    $SuccessOrAcceptHostKeyOrPwdPrompt = Receive-AwaitResponse
-                    if (![System.String]::IsNullOrWhiteSpace($SuccessOrAcceptHostKeyOrPwdPrompt)) {
-                        $null = $SSHOutputPrep.Add($SuccessOrAcceptHostKeyOrPwdPrompt)
-                    }
-                    Start-Sleep -Seconds 1
-                    $Counter++
-                }
-                if ($Counter -eq 31) {
-                    Write-Error "Sending the user's password timed out!"
-                    $global:FunctionResult = "1"
-
-                    $SSHOutputPrep
-
-                    if ($PSAwaitProcess.Id) {
-                        try {
-                            $null = Stop-AwaitSession
-                        }
-                        catch {
-                            if ($PSAwaitProcess.Id -eq $PID) {
-                                Write-Error "The PSAwaitSession never spawned! Halting!"
-                                $global:FunctionResult = "1"
-                                return
-                            }
-                            else {
-                                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                                }
-                                $Counter = 0
-                                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                                    Start-Sleep -Seconds 1
-                                    $Counter++
-                                }
-                            }
-                        }
-                    }
-
-                    return
-                }
-            }
-            else {
-                $SSHOutputPrep = $($CheckResponsesOutput | Out-String) -split "`n"
-                #$SSHOutputPrep | Export-CliXml "$HOME\SSHOutputPrepA.xml"
-            }
-
-            if ($PSAwaitProcess.Id) {
-                try {
-                    $null = Stop-AwaitSession
-                }
-                catch {
-                    if ($PSAwaitProcess.Id -eq $PID) {
-                        Write-Error "The PSAwaitSession never spawned! Halting!"
-                        $global:FunctionResult = "1"
-                        return
-                    }
-                    else {
-                        if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                            Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                        }
-                        $Counter = 0
-                        while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                            Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                            Start-Sleep -Seconds 1
-                            $Counter++
-                        }
-                    }
-                }
-            }
-
-            # TODO: Remove this after testing finished
-            #$SSHOutputPrep
-
-            $LinuxRegex = "ubuntu|debain|centos|rhel|redhat|opensuse|fedora|raspbian|kali|linux|unix"
-
-            if ([bool]$($($SSHOutputPrep -split "`n") -match "^ConnectionSuccessful")) {
-                if ($SSHOutputPrep -match "ConnectionSuccessful; echo 111RootDirInfo111;") {
-                    $OSDetermination = "Windows"
-                    $ShellDetermination = "cmd"
-                    $OSVersionInfo = $null
-                }
-                elseif ($SSHOutputPrep -match "111RootDirInfo111" -and $SSHOutputPrep -match "Directory:.*[a-zA-Z]:\\") {
-                    $OSDetermination = "Windows"
-                    if ($SSHOutputPrep -match "111ProcessInfo111" -and $SSHOutputPrep -match "Name[\s]+:[\s]+powershell") {
-                        $ShellDetermination = "powershell"
-                        # The below $OSVersionInfo will be a string that looks something like:
-                        #   Microsoft Windows Server 2016 Standard Evaluation
-                        $OSVersionInfo = $($($($SSHOutputPrep -split "`n") -match "Cim OS Info:") -replace "Cim OS Info: ","").Trim()
-                    }
-                    elseif ($SSHOutputPrep -match "111ProcessInfo111" -and $SSHOutputPrep -match "Name[\s]+:[\s]+pwsh") {
-                        $ShellDetermination = "pwsh"
-                        # The below $OSVersionInfo will be a string that looks something like:
-                        #   Microsoft Windows Server 2016 Standard Evaluation
-                        $OSVersionInfo = $($($($SSHOutputPrep -split "`n") -match "Cim OS Info:") -replace "Cim OS Info: ","").Trim()
-                    }
-                }
-                elseif ($SSHOutputPrep -match "Darwin") {
-                    $OSDetermination = "MacOS"
-                    if ($SSHOutputPrep -match "111ProcessInfo111" -and $SSHOutputPrep -match "Name[\s]+:[\s]+pwsh") {
-                        $ShellDetermination = "pwsh"
-                    }
-                    else {
-                        $ShellDetermination = "bash"
-                    }
-
-                    $UnameOutputHeader = $($SSHOutputPrep -split "`n") -match "111UnameOutput111"
-                    if ($UnameOutputHeader.Count -gt 1) {$UnameOutputHeader = $UnameOutputHeader[-1]}
-                    $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($UnameOutputHeader)
-                    if ($UnameOutputHeaderIndex -eq "-1") {
-                        $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($UnameOutputHeader[0])
-                    }
-                    $UnameOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
-
-                    $HostNamectlOutputHeader = $($SSHOutputPrep -split "`n") -match "111HostnamectlOutput111"
-                    if ($HostNamectlOutputHeader.Count -gt 1) {$HostNamectlOutputHeader = $HostNamectlOutputHeader[-1]}
-                    $HostNamectlOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($HostNamectlOutputHeader)
-                    if ($HostNamectlOutputHeaderIndex -eq "-1") {
-                        $HostNamectlOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($HostNamectlOutputHeader[0])
-                    }
-                    $HostNamectlOutput = $($SSHOutputPrep -split "`n")[$($HostNamectlOutputHeaderIndex+1)..$($($SSHOutputPrep -split "`n").Count-1)]
-
-                    [System.Collections.ArrayList]$OSVersionInfo = @()
-                    if ($UnameOutput) {
-                        $null = $OSVersionInfo.Add($UnameOutput)
-                    }
-                    if ($HostnamectlOutput) {
-                        $null = $OSVersionInfo.Add($HostnamectlOutput)
-                    }
-                }
-                elseif ($SSHOutputPrep -match $LinuxRegex -and
-                !$($SSHOutputPrep -match "111RootDirInfo111" -and $SSHOutputPrep -match "Directory:.*[a-zA-Z]:\\")
-                ) {
-                    $OSDetermination = "Linux"
-                    if ($SSHOutputPrep -match "111ProcessInfo111" -and $SSHOutputPrep -match "Name[\s]+:[\s]+pwsh") {
-                        $ShellDetermination = "pwsh"
-                    }
-                    else {
-                        $ShellDetermination = "bash"
-                    }
-
-                    #$SSHOutputPrep | Export-Clixml "$HOME\SSHOutputPrep.xml"
-
-                    $UnameOutputHeader = $($SSHOutputPrep -split "`n") -match "111UnameOutput111"
-                    if ($UnameOutputHeader.Count -gt 1) {$UnameOutputHeader = $UnameOutputHeader[-1]}
-                    $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($UnameOutputHeader)
-                    if ($UnameOutputHeaderIndex -eq "-1") {
-                        $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($UnameOutputHeader[0])
-                    }
-                    $UnameOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
-
-                    $HostNamectlOutputHeader = $($SSHOutputPrep -split "`n") -match "111HostnamectlOutput111"
-                    if ($HostNamectlOutputHeader.Count -gt 1) {$HostNamectlOutputHeader = $HostNamectlOutputHeader[-1]}
-                    $HostNamectlOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($HostNamectlOutputHeader)
-                    if ($HostNamectlOutputHeaderIndex -eq "-1") {
-                        $HostNamectlOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($HostNamectlOutputHeader[0])
-                    }
-                    $HostNamectlOutput = $($SSHOutputPrep -split "`n")[$($HostNamectlOutputHeaderIndex+1)..$($($SSHOutputPrep -split "`n").Count-1)]
-
-                    [System.Collections.ArrayList]$OSVersionInfo = @()
-                    if ($UnameOutput) {
-                        $null = $OSVersionInfo.Add($UnameOutput)
-                    }
-                    if ($HostnamectlOutput) {
-                        $null = $OSVersionInfo.Add($HostnamectlOutput)
-                    }
-                }
-
-                $FinalOutput = [pscustomobject]@{
-                    OS              = $OSDetermination
-                    Shell           = $ShellDetermination
-                    OSVersionInfo   = $OSVersionInfo
-                    AllOutput       = $SSHOutputPrep
-                }
-            }
-        }
-    }
-    elseif ($PSVersionTable.Platform -eq "Unix") {
-        if ($RemoteOSGuess -eq "Windows") {
-            if ($LocalUserName) {
-                $FullUserName = $LocalUserName
-            }
-            if ($DomainUserName) {
-                $FullUserName = $DomainUserName
-            }
-
-            if ($RemoteHostNetworkInfo.FQDN -match "unknown") {
-                $HostNameValue = @(
-                    $RemoteHostNetworkInfo.IPAddressList | Where-Object {$_ -notmatch "^169"}
-                )[0]
-            }
-            else {
-                $HostNameValue = $RemoteHostNetworkInfo.FQDN
-            }
-
-            # This is basically what we're going for with the below string manipulation:
-            #   & pwsh -c {Invoke-Command -HostName zerowin16sshb -KeyFilePath "$HOME\.ssh\zeroadmin_090618-cert.pub" -ScriptBlock {[pscustomobject]@{Output = "ConnectionSuccessful"}} | ConvertTo-Json}
-            $PwshRemoteScriptBlockStringArray = @(
-                '[pscustomobject]@{'
-                '    Output = \"ConnectionSuccessful\"'
-                '    Platform = (Get-Variable PSVersionTable -ValueOnly).Platform'
-                '    DistroInfo = (Get-Variable PSVersionTable -ValueOnly).OS'
-                '    Hostnamectl = hostnamectl'
-                '}'
-            ) | foreach {"    $_"}
-            $PwshRemoteScriptBlockString = $PwshRemoteScriptBlockStringArray -join "`n"
-            [System.Collections.ArrayList]$PwshInvCmdStringArray = @(
-                'Invoke-Command'
-                '-HostName'
-                $HostNameValue
-                '-UserName'
-                $FullUserName
-            )
-            if ($KeyFilePath) {
-                $null = $PwshInvCmdStringArray.Add('-KeyFilePath')
-                $null = $PwshInvCmdStringArray.Add("'$KeyFilePath'")
-            }
-            $null = $PwshInvCmdStringArray.Add('-HideComputerName')
-            $null = $PwshInvCmdStringArray.Add("-ScriptBlock {`n$PwshRemoteScriptBlockString`n}")
-            $null = $PwshInvCmdStringArray.Add('|')
-            $null = $PwshInvCmdStringArray.Add('ConvertTo-Json')
-            $PwshInvCmdString = $PwshInvCmdStringArray -join " "
-            $PwshCmdStringArray = @(
-                $(Get-Command pwsh).Source
-                "-c {$PwshInvCmdString}"
-            )
-            $PwshCmdString = $script:PwshCmdString = $PwshCmdStringArray -join " "
-
-            $FinalPassword = if ($DomainPassword) {$DomainPassword} else {$LocalPassword}
-
-            # NOTE: 'timeout' is in seconds
-            
-            $ExpectScriptPrep = @(
-                'expect - << EOF'
-                'set timeout 10'
-                "set password $FinalPassword"
-                'set prompt \"(>|:|#|\\\\\\$)\\\\s+\\$\"'
-                "spawn $PwshCmdString"
-                'match_max 100000'
-                'expect {'
-                '    \"*(yes/no)?*\" {'
-                '        send -- \"yes\r\"'
-                '        exp_continue'
-                '    }'
-                '    -re \".*assword.*:\" {'
-                '        send -- \"\$password\r\"'
-                '        exp_continue'
-                '    }'
-                '    -re \"\$prompt\" {'
-                '        send -- \"echo LoggedIn\r\"'
-                '        expect \"*\"'
-                '    }'
-                '}'
-                'EOF'
-            )
-            $ExpectScript = $ExpectScriptPrep -join "`n"
-
-            # The below $ExpectOutput is an array of strings
-            $ExpectOutput = bash -c "$ExpectScript"
-            #$ExpectOutput | Export-CliXml -Path "$HOME/ExpectOutput1.xml"
-
-            $SSHOutputPrep = $ExpectOutput -replace "\e\[(\d+;)*(\d+)?[ABCDHJKfmsu]",""
-
-            # Sample Contents of $ExpectOutput
-            <#
-            spawn pwsh -c Invoke-Command -HostName centos7nodomain -UserName vagrant -ScriptBlock {[pscustomobject]@{Output = "ConnectionSuccessful"}} | ConvertTo-Json
-            vagrant@centos7nodomain's password:
-            {
-            "Output": "ConnectionSuccessful",
-            "Platform": "Unix",
-            "DistroInfo": "Linux 3.10.0-862.2.3.el7.x86_64 #1 SMP Wed May 9 18:05:47 UTC 2018",
-            "PSComputerName": "centos7nodomain",
-            "RunspaceId": "ce31711a-87eb-47b8-809d-6598990d54c4",
-            "PSShowComputerName": true
-            }
-            #>
-
-            $JsonStartIndex = $SSHOutputPrep.IndexOf($($SSHOutputPrep -match '"Output"'))
-            $JsonEndIndex = $SSHOutputPrep.IndexOf($($SSHOutputPrep -match '^}$'))
-            [System.Collections.ArrayList]$FinalJson = $SSHOutputPrep[$JsonStartIndex..$JsonEndIndex]
-            $FinalJson.Insert(0,"{")
-
-            try {
-                $SSHCheckAsJson = $FinalJson | ConvertFrom-Json
-            }
-            catch {
-                $TrySSHExe = $True
-            }
-
-            if ($SSHCheckAsJson.Output -ne "ConnectionSuccessful") {
-                $TrySSHExe = $True
-            }
-
-            if ($SSHCheckAsJson.Output -eq "ConnectionSuccessful") {
-                if ($SSHCheckAsJson.Platform -eq "Win32NT") {
-                    $OSDetermination = "Windows"
-                    $ShellDetermination = "pwsh"
-                }
-                elseif ($SSHCheckAsJson.DistroInfo -match "Darwin") {
-                    $OSDetermination = "MacOS"
-                    $ShellDetermination = "pwsh"
-                    
-                }
-                else {
-                    $OSDetermination = "Linux"
-                    $ShellDetermination = "pwsh"
-                }
-
-                [System.Collections.ArrayList]$OSVersionInfo = @()
-                if ($SSHCheckAsJson.DistroInfo) {
-                    $null = $OSVersionInfo.Add($SSHCheckAsJson.DistroInfo)
-                }
-                if ($SSHCheckAsJson.Hostnamectl) {
-                    $null = $OSVersionInfo.Add($SSHCheckAsJson.Hostnamectl)
-                }
-
-                $FinalOutput = [pscustomobject]@{
-                    OS              = $OSDetermination
-                    Shell           = $ShellDetermination
-                    OSVersionInfo   = $OSVersionInfo
-                    AllOutput       = $SSHCheckAsJson
-                }
-            }
-        }
-
-        if ($RemoteOSGuess -eq "Linux" -or $TrySSHExe) {
-            if ($LocalUserName) {
-                $FullUserName = $($LocalUserName -split "\\")[-1]
-            }
-            if ($DomainUserName) {
-                $DomainNameShort = $($DomainUserName -split "\\")[0]
-                $FullUserName = $($DomainUserName -split "\\")[-1]
-            }
-
-            $HostNameValue = $RHostIP = @(
-                $RemoteHostNetworkInfo.IPAddressList | Where-Object {$_ -notmatch "^169"}
-            )[0]
-
-            # This is what we're going for:
-            #     ssh -t pdadmin@192.168.2.10 "echo 'ConnectionSuccessful'"
-            [System.Collections.ArrayList]$SSHCmdStringArray = @(
-                'ssh'
-            )
-            if ($KeyFilePath) {
-                $null = $SSHCmdStringArray.Add("-i")
-                $null = $SSHCmdStringArray.Add("'" + $KeyFilePath + "'")
-            }
-            if ($LocalUserName) {
-                $null = $SSHCmdStringArray.Add("$FullUserName@$HostNameValue")
-            }
-            if ($DomainUserName) {
-                $null = $SSHCmdStringArray.Add("$FullUserName@$DomainNameShort@$HostNameValue")
-            }
-            $Bytes = [System.Text.Encoding]::Unicode.GetBytes('$PSVersionTable | ConvertTo-Json')
-            $EncodedCommandPSVerTable = [Convert]::ToBase64String($Bytes)
-            $Bytes = [System.Text.Encoding]::Unicode.GetBytes('"Cim OS Info: " + $(Get-CimInstance Win32_OperatingSystem).Caption')
-            $EncodedCommandWinOSCim = [Convert]::ToBase64String($Bytes)
-            $SSHScript = @(
-                "echo ConnectionSuccessful"
-                "echo 111RootDirInfo111"
-                "cd /"
-                "dir"
-                "echo 111ProcessInfo111"
-                'Get-Process -Id \\\$PID'
-                "echo 111PwshJson111"
-                "pwsh -NoProfile -EncodedCommand $EncodedCommandPSVerTable"
-                "echo 111PowerShellCimInfo111"
-                "powershell -NoProfile -EncodedCommand $EncodedCommandWinOSCim"
-                "echo 111UnameOutput111"
-                "uname -a"
-                "echo 111HostnamectlOutput111"
-                "hostnamectl"
-            )
-            #$SSHScript = $SSHScript -join "; "
-            #$null = $SSHCmdStringArray.Add($($SSHScript))
-            #$null = $SSHCmdStringArray.Add($('"' + $SSHScript + '"'))
-            # NOTE: The below -replace regex string removes garbage escape sequences like: [116;1H
-            #$SSHCmdString = $script:SSHCmdString = '@($(' + $($SSHCmdStringArray -join " ") + ') -replace "\e\[(\d+;)*(\d+)?[ABCDHJKfmsu]","") 2>$null'
-            $SSHCmdString = $script:SSHCmdString = $SSHCmdStringArray -join " "
-
-            #Write-Host "`$SSHCmdString is:`n$SSHCmdString"
-
-            $FinalPassword = if ($DomainPassword) {$DomainPassword} else {$LocalPassword}
-
-            $SSHScript = $SSHScript | foreach {
-                'send -- \"' + $_ + '\r\"' + "`n" + 'expect \"*\"'
-            }
-
-            #Write-Host "`$SSHScript is:`n    $SSHScript"
-
-            $ExpectScriptPrep = @(
-                'expect - << EOF'
-                'set timeout 10'
-                "set password $FinalPassword"
-                'set prompt \"(>|:|#|\\\\\\$)\\\\s+\\$\"'
-                "spawn $SSHCmdString"
-                'match_max 100000'
-                'expect {'
-                '    \"*(yes/no)?*\" {'
-                '        send -- \"yes\r\"'
-                '        exp_continue'
-                '    }'
-                '    -re \".*assword.*:\" {'
-                '        send -- \"\$password\r\"'
-                '        exp_continue'
-                '    }'
-                '    -re \"\$prompt\" {'
-                '        send -- \"echo LoggedIn\r\"'
-                '        expect \"*\"'
-                '    }'
-                '}'
-                $SSHScript
-                'send -- \"exit\r\"'
-                'expect eof'
-                'EOF'
-            )
-            $ExpectScript = $ExpectScriptPrep -join "`n"
-
-            #Write-Host "`$ExpectScript is:`n$ExpectScript"
-            
-            # The below $ExpectOutput is an array of strings
-            $ExpectOutput = bash -c "$ExpectScript"
-            #$ExpectOutput | Export-CliXml -Path "$HOME/ExpectOutput2.xml"
-
-            # NOTE: The below -replace regex string removes garbage escape sequences like: [116;1H
-            $SSHOutputPrep = $ExpectOutput -replace "\e\[(\d+;)*(\d+)?[ABCDHJKfmsu]",""
-
-            $LinuxRegex = "ubuntu|debain|centos|rhel|redhat|opensuse|fedora|raspbian|kali|linux|unix"
-
-            if ([bool]$($($SSHOutputPrep -split "`n") -match "^ConnectionSuccessful")) {
-                if ([bool]$($($SSHOutputPrep -split "`n") -match "'Get-Process' is not recognized as an internal or external command")) {
-                    $OSDetermination = "Windows"
-                    $ShellDetermination = "cmd"
-                    $OSVersionInfo = $null
-                }
-                elseif ($SSHOutputPrep -match "111RootDirInfo111" -and $SSHOutputPrep -match "Directory:.*[a-zA-Z]:\\") {
-                    $OSDetermination = "Windows"
-                    if ($($SSHOutputPrep -join "") -match "111ProcessInfo.*Process.*powershell.*111PwshJson111") {
-                        $ShellDetermination = "powershell"
-                        # The below $OSVersionInfo will be a string that looks something like:
-                        #   Microsoft Windows Server 2016 Standard Evaluation
-                        $OSVersionInfo = $($($($SSHOutputPrep -split "`n") -match "Cim OS Info:") -replace "Cim OS Info: ","").Trim()
-                    }
-                    elseif ($($SSHOutputPrep -join "") -match "111ProcessInfo.*Process.*pwsh.*111PwshJson111") {
-                        $ShellDetermination = "pwsh"
-                        # The below $OSVersionInfo will be a string that looks something like:
-                        #   Microsoft Windows Server 2016 Standard Evaluation
-                        $OSVersionInfo = $($($($SSHOutputPrep -split "`n") -match "Cim OS Info:") -replace "Cim OS Info: ","").Trim()
-                    }
-                }
-                elseif ($SSHOutputPrep -match "Darwin") {
-                    $OSDetermination = "MacOS"
-                    if ($SSHOutputPrep -match "111ProcessInfo111" -and $SSHOutputPrep -match "Name[\s]+:[\s]+pwsh") {
-                        $ShellDetermination = "pwsh"
-                    }
-                    else {
-                        $ShellDetermination = "bash"
-                    }
-
-                    $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($($($SSHOutputPrep -split "`n") -match "uname -a"))
-                    $UnameOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
-                    $HostnamectlOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 2)..$($($SSHOutputPrep -split "`n").Count-1)]
-
-                    [System.Collections.ArrayList]$OSVersionInfo = @()
-                    if ($UnameOutput) {
-                        $null = $OSVersionInfo.Add($UnameOutput)
-                    }
-                    if ($HostnamectlOutput) {
-                        $null = $OSVersionInfo.Add($HostnamectlOutput)
-                    }
-                }
-                elseif ($($($SSHOutputPrep -join "") -match "111RootDirInfo111.*etc.*111ProcessInfo111" -or $($SSHOutputPrep -join "") -match $LinuxRegex) -and 
-                !$($($SSHOutputPrep -join "") -match "111RootDirInfo111.*Windows.*111ProcessInfo111")
-                ) {
-                    $OSDetermination = "Linux"
-                    if ($($SSHOutputPrep -join "") -match "111ProcessInfo.*Process.*pwsh.*111PwshJson111" -and $($SSHOutputPrep -join "") -notmatch "-bash") {
-                        $ShellDetermination = "pwsh"
-                    }
-                    else {
-                        $ShellDetermination = "bash"
-                    }
-
-                    $UnameOutputHeaderIndex = $($SSHOutputPrep -split "`n").IndexOf($($($SSHOutputPrep -split "`n") -match "uname -a"))
-                    $UnameOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 1)]
-                    $HostnamectlOutput = $($SSHOutputPrep -split "`n")[$($UnameOutputHeaderIndex + 2)..$($($SSHOutputPrep -split "`n").Count-1)]
-
-                    [System.Collections.ArrayList]$OSVersionInfo = @()
-                    if ($UnameOutput) {
-                        $null = $OSVersionInfo.Add($UnameOutput)
-                    }
-                    if ($HostnamectlOutput) {
-                        $null = $OSVersionInfo.Add($HostnamectlOutput)
-                    }
-                }
-
-                $FinalOutput = [pscustomobject]@{
-                    OS              = $OSDetermination
-                    Shell           = $ShellDetermination
-                    OSVersionInfo   = $OSVersionInfo
-                    AllOutput       = $SSHOutputPrep
-                }
-            }
-        }
+        $FinalNewRepoLocalPath = "$($NewRepoLocalPath | Split-Path -Parent)\$FinalNewRepoName"
     }
     else {
-        Write-Error "Unable to test SSH! Halting!"
-        $global:FunctionResult = "1"
-
-        if ($PSAwaitProcess.Id) {
-            try {
-                $null = Stop-AwaitSession
-            }
-            catch {
-                if ($PSAwaitProcess.Id -eq $PID) {
-                    Write-Error "The PSAwaitSession never spawned! Halting!"
-                    $global:FunctionResult = "1"
-                    return
-                }
-                else {
-                    if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                        Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                    }
-                    $Counter = 0
-                    while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue) -and $Counter -le 15) {
-                        Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                        Start-Sleep -Seconds 1
-                        $Counter++
-                    }
-                }
-            }
-        }
-
-        return
+        $FinalNewRepoLocalPath = $NewRepoLocalPath
     }
 
-    if ($PSAwaitProcess.Id) {
+    if (!$(Test-Path $FinalNewRepoLocalPath)) {
+        $null = New-Item -Type Directory -Path $FinalNewRepoLocalPath -Force
+    }
+
+    Push-Location $FinalNewRepoLocalPath
+
+    $ReadMeDefaultContent = @"
+[![Build status](https://ci.appveyor.com/api/projects/status/github/$GitHubUserName/$FinalNewRepoName?branch=master&svg=true)](https://ci.appveyor.com/project/$GitHubUserName/sudo/branch/master)
+
+
+# $FinalNewRepoName
+<Synopsis>
+
+## Getting Started
+
+``````powershell
+# One time setup
+    # Download the repository
+    # Unblock the zip
+    # Extract the $FinalNewRepoName folder to a module path (e.g. `$env:USERPROFILE\Documents\WindowsPowerShell\Modules\)
+# Or, with PowerShell 5 or later or PowerShellGet:
+    Install-Module $FinalNewRepoName
+
+# Import the module.
+    Import-Module $FinalNewRepoName    # Alternatively, Import-Module <PathToModuleFolder>
+
+# Get commands in the module
+    Get-Command -Module $FinalNewRepoName
+
+# Get help
+    Get-Help <$FinalNewRepoName Function> -Full
+    Get-Help about_$FinalNewRepoName
+``````
+
+## Examples
+
+### Scenario 1
+
+``````powershell
+powershell code
+``````
+
+## Notes
+
+* PSGallery: 
+"@
+    Set-Content -Value $ReadMeDefaultContent -Path .\README.md
+
+    if ($GitIgnoreContent) {
+        Set-Content -Value $GitIgnoreContent -Path .\.gitignore
+    }
+
+    if ($AuthMethod -eq "https") {
+        # More info on JSON Options: https://developer.github.com/v3/repos/#create
+        if ($PublicOrPrivate -eq "Public") {
+            $PrivateBool = "false"
+        }
+        else {
+            $PrivateBool = "true"
+        }
+        
+        $jsonRequest = @(
+            '{'
+            "    `"name`": `"$FinalNewRepoName`","
+            "    `"description`": `"$NewRepoDescription`","
+            "    `"private`": `"$PrivateBool`""
+            '}'
+        )
+
         try {
-            $null = Stop-AwaitSession
+            $JsonCompressed = $jsonRequest | ConvertFrom-Json -EA Stop | ConvertTo-Json -Compress -EA Stop
         }
         catch {
-            if ($PSAwaitProcess.Id -eq $PID) {
-                Write-Error "The PSAwaitSession never spawned! Halting!"
-                $global:FunctionResult = "1"
-                return
-            }
-            else {
-                if ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                    Stop-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue
-                }
-                while ([bool]$(Get-Process -Id $PSAwaitProcess.Id -ErrorAction SilentlyContinue)) {
-                    Write-Verbose "Waiting for Await Module Process Id $($PSAwaitProcess.Id) to end..."
-                    Start-Sleep -Seconds 1
-                }
-            }
+            Write-Error $_
+            $global:FunctionResult = "1"
+            return
         }
+        $NewRepoCreationResult = Invoke-RestMethod -Uri "https://api.github.com/user/repos" -Headers $Headers -Body $JsonCompressed -Method Post
+        
+        git init
+        git add -A
+        git commit -am "first commit"
+        git remote add origin "https://github.com/$GitHubUserName/$FinalNewRepoName.git"
+        git push -u origin master
     }
-
-    $FinalOutput
 }
 
 
 <#
     .SYNOPSIS
-        Determines if the specified user has sudo privileges on a Remote Host, and if so, whether or not they are prompted for a
-        sudo password when running 'sudo pwsh'.
-
-        Returns a pscustomobject with bool properties 'HasSudoPrivileges' and 'PasswordPrompt'.
+        Test to make sure ssh or https authentication is working.
 
     .DESCRIPTION
-        See SYNOPSIS
+        See Synopsis.
+    
+    .PARAMETER GitHubUserName
+        TODO
 
-    .PARAMETER RemoteHostNameOrIP
-        This parameter is MANDATORY.
+    .PARAMETER AuthMethod
+        TODO
 
-        This parameter takes a string that represents the DNS-resolvable HostName/FQDN or IPv4 Address of the target Remote Host
+    .PARAMETER ExistingSSHPrivateKeyPath
+        TODO
 
-    .PARAMETER LocalUserName
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a string that represents the Local User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <RemoteHostName>\<UserName>
-
-    .Parameter DomainUserName
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a string that represents the Domain User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <DomainShortName>\<UserName>
-
-    .Parameter LocalPasswordSS
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a securestring that represents the password for the -LocalUserName you are using to ssh into the
-        Remote Host.
-
-    .Parameter DomainPasswordSS
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a securestring that represents the password for the -DomainUserName you are using to ssh into the
-        Remote Host.
-
-    .PARAMETER KeyFilePath
-        This parameter is OPTIONAL.
-
-        This parameter takes a string that represents the full path to the Key File you are using to ssh into the Remote Host.
-        Use this parameter instead of -LocalPasswordSS or -DomainPasswordSS.
-
+    .PARAMETER PersonalAccessToken
+        TODO
+    
     .EXAMPLE
-        # Minimal parameters...
+        # Launch PowerShell and...
 
-        $GetSudoStatusSplatParams = @{
-            RemoteHostNameOrIP      = "zerowin16sshb"
-            DomainUserNameSS        = "zero\zeroadmin"
-            DomainPasswordSS        = $(Read-Host -Prompt "Enter password" -AsSecureString)
+        $TestGitAuthParams = @{
+            GitHubUserName = "pldmgg"
+            AuthMethod = "https"
+            PersonalAccessToken = "2345678dsfghjk4567890"
         }
-        Get-SudoStatus @GetSudoStatusSplatParams
 
-    .EXAMPLE
-        # Using a local account on the Remote Host...
+        Test-GitAuthentication @TestGitAuthParams
 
-        $GetSudoStatusSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            LocalPasswordSS         = $(Read-Host -Prompt "Enter password" -AsSecureString)
-        }
-        Get-SudoStatus @GetSudoStatusSplatParams
-
-    .EXAMPLE
-        # Using an ssh Key File instead of a password...
-
-        $GetSudoStatusSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            KeyFilePath             = $HOME/.ssh/my_ssh_key
-        }
-        Get-SudoStatus @GetSudoStatusSplatParams
-        
 #>
-function Get-SudoStatus {
-    [CmdletBinding()]
-    Param(
+function Test-GitAuthentication {
+    [CmdletBinding(DefaultParameterSetName='ssh')]
+    Param (
         [Parameter(Mandatory=$True)]
-        [string]$RemoteHostNameOrIP,
+        [string]$GitHubUserName,
 
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <RemoteHostName>\<User>
-        [string]$LocalUserName,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Domain'    
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string]$DomainUserName,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Local'    
-        )]
-        [securestring]$LocalPasswordSS,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Domain'
-        )]
-        [securestring]$DomainPasswordSS,
-
-        [Parameter(Mandatory=$False)]
-        [string]$KeyFilePath
-    )
-
-    #region >> Prep
-
-    if (!$(Get-Command ssh -ErrorAction SilentlyContinue)) {
-        Write-Error "Unable to find 'ssh'! Please make sure it is installed and part of your Environment/System Path! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($KeyFilePath) {
-        if (!$(Test-Path $KeyFilePath)) {
-            Write-Error "Unable to find KeyFilePath '$KeyFilePath'! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-
-        if (!$LocalUserName -and !$DomainUserName) {
-            Write-Error "You must supply either -LocalUserName or -DomainUserName when using the -KeyFilePath parameter! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    try {
-        $RemoteHostNetworkInfo = ResolveHost -HostNameOrIP $RemoteHostNameOrIP -ErrorAction Stop
-    }
-    catch {
-        Write-Error $_
-        Write-Error "Unable to resolve '$RemoteHostNameOrIP'! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalPasswordSS -or $DomainPasswordSS -and $KeyFilePath) {
-        Write-Error "Please use EITHER -KeyFilePath OR -LocalPasswordSS/-DomainPasswordSS in order to ssh to $RemoteHostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalUserName) {
-        if ($($LocalUserName -split "\\")[0] -ne $RemoteHostNetworkInfo.HostName) {
-            $ErrMsg = "The HostName indicated by -LocalUserName (i.e. $($($LocalUserName -split "\\")[0]) is not the same as " +
-            "the HostName as determined by network resolution (i.e. $($RemoteHostNetworkInfo.HostName))! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-    if ($DomainUserName) {
-        if ($($DomainUserName -split "\\")[0] -ne $($RemoteHostNetworkInfo.Domain -split "\.")[0]) {
-            $ErrMsg = "The Domain indicated by -DomainUserName (i.e. '$($($DomainUserName -split "\\")[0])') is not the same as " +
-            "the Domain as determined by network resolution (i.e. '$($($RemoteHostNetworkInfo.Domain -split "\.")[0])')! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    if (!$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT") {
-        try {
-            if ($(Get-Module -ListAvailable).Name -notcontains 'WinSSH') {$null = Install-Module WinSSH -ErrorAction Stop}
-            if ($(Get-Module).Name -notcontains 'WinSSH') {$null = Import-Module WinSSH -ErrorAction Stop}
-            Import-Module "$($(Get-Module WinSSH).ModuleBase)\Await\Await.psd1" -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
-        }
-
-        try {
-            $null = Stop-AwaitSession
-        }
-        catch {
-            Write-Verbose $_.Exception.Message
-        }
-    }
-
-    if ($PSVersionTable.Platform -eq "Unix") {
-        # Determine if we have required Linux commands
-        [System.Collections.ArrayList]$LinuxCommands = @(
-            "echo"
-            "expect"
-        )
-        [System.Collections.ArrayList]$CommandsNotPresent = @()
-        foreach ($CommandName in $LinuxCommands) {
-            $CommandCheckResult = command -v $CommandName
-            if (!$CommandCheckResult) {
-                $null = $CommandsNotPresent.Add($CommandName)
-            }
-        }
-
-        if ($CommandsNotPresent.Count -gt 0) {
-            [System.Collections.ArrayList]$FailedInstalls = @()
-            if ($CommandsNotPresent -contains "echo") {
-                try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "coreutils" -CommandName "echo"
-                }
-                catch {
-                    $null = $FailedInstalls.Add("coreutils")
-                }
-            }
-            if ($CommandsNotPresent -contains "expect") {
-                try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "expect" -CommandName "expect"
-                }
-                catch {
-                    $null = $FailedInstalls.Add("expect")
-                }
-            }
-    
-            if ($FailedInstalls.Count -gt 0) {
-                Write-Error "The following Linux packages are required, but were not able to be installed:`n$($FailedInstalls -join "`n")`nHalting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        [System.Collections.ArrayList]$CommandsNotPresent = @()
-        foreach ($CommandName in $LinuxCommands) {
-            $CommandCheckResult = command -v $CommandName
-            if (!$CommandCheckResult) {
-                $null = $CommandsNotPresent.Add($CommandName)
-            }
-        }
-    
-        if ($CommandsNotPresent.Count -gt 0) {
-            Write-Error "The following Linux commands are required, but not present on $env:ComputerName:`n$($CommandsNotPresent -join "`n")`nHalting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
-
-    if ($LocalPasswordSS) {
-        $LocalPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($LocalPasswordSS))
-    }
-    If ($DomainPasswordSS) {
-        $DomainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($DomainPasswordSS))
-    }
-
-    if ($LocalUserName) {
-        $FullUserName = $($LocalUserName -split "\\")[-1]
-    }
-    if ($DomainUserName) {
-        $DomainNameShort = $($DomainUserName -split "\\")[0]
-        $FullUserName = $($DomainUserName -split "\\")[-1]
-    }
-
-    $OnWindows = !$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT"
-
-    #endregion >> Prep
-
-    #region >> Main
-
-    $PSVerTablePwshBytes = [System.Text.Encoding]::Unicode.GetBytes('$PSVersionTable')
-    $EncodedCommand = [Convert]::ToBase64String($PSVerTablePwshBytes)
-
-    [System.Collections.ArrayList]$CheckSudoStatusScript = @(
-        $('prompt=$(sudo -n pwsh -EncodedCommand {0} 2>&1)' -f $EncodedCommand)
-        $('if [ $? -eq 0 ]; then echo {0}; elif echo $prompt | grep -q {1}; then echo {2}; else echo {3}; fi' -f "'NoPasswordPrompt'","'^sudo'","'PasswordPrompt'","'NoSudoPrivileges'")
-    )
-    $null = $CheckSudoStatusScript.Add('echo checkSudoComplete')
-
-    $SSHScriptBuilderSplatParams = @{
-        RemoteHostNameOrIP  = $RemoteHostNameOrIP
-    }
-    if ($LocalUserName) {
-        $SSHScriptBuilderSplatParams.Add('LocalUserName',$LocalUserName)
-    }
-    if ($DomainUserName) {
-        $SSHScriptBuilderSplatParams.Add('DomainUserName',$DomainUserName)
-    }
-    if ($KeyFilePath) {
-        $SSHScriptBuilderSplatParams.Add("KeyFilePath",$KeyFilePath)
-    }
-    if ($LocalPassword) {
-        $SSHScriptBuilderSplatParams.Add("LocalPassword",$LocalPassword)
-    }
-    if ($DomainPassword) {
-        $SSHScriptBuilderSplatParams.Add("DomainPassword",$DomainPassword)
-    }
-    
-    if ($OnWindows) {
-        $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',[float]'.25')
-    }
-        
-    $SSHScriptBuilderSplatParams.Add('SSHScriptArray',$CheckSudoStatusScript)
-
-    $Output = SSHScriptBuilder @SSHScriptBuilderSplatParams
-    
-    if ($Output.AllOutput -match 'NoPasswordPrompt') {
-        [pscustomobject]@{
-            HasSudoPrivileges   = $True
-            PasswordPrompt      = $False
-            AllOutput           = $Output.AllOutput
-        }
-    }
-    elseif ($Output.AllOutput -match 'PasswordPrompt') {
-        [pscustomobject]@{
-            HasSudoPrivileges   = $True
-            PasswordPrompt      = $True
-            AllOutput           = $Output.AllOutput
-        }
-    }
-    elseif ($Output.AllOutput -match 'NoSudoPrivileges') {
-        [pscustomobject]@{
-            HasSudoPrivileges   = $False
-            PasswordPrompt      = $False
-            AllOutput           = $Output.AllOutput
-        }
-    }
-
-    #endregion >> Main
-}
-
-
-<#
-    .SYNOPSIS
-        Edits /etc/sudoers to allow the specified user to run 'sudo pwsh' without needing to enter a sudo password.
-
-    .DESCRIPTION
-        See SYNOPSIS
-
-    .PARAMETER RemoteHostNameOrIP
-        This parameter is MANDATORY.
-
-        This parameter takes a string that represents the DNS-resolvable HostName/FQDN or IPv4 Address of the target Remote Host
-
-    .PARAMETER LocalUserName
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a string that represents the Local User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <RemoteHostName>\<UserName>
-
-    .Parameter DomainUserName
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a string that represents the Domain User Account on the Remote Host that you are using to ssh into
-        the Remote Host. This string must be in format: <DomainShortName>\<UserName>
-
-    .Parameter LocalPasswordSS
-        This parameter is MANDATORY for the Parameter Set 'Local'.
-
-        This parameter takes a securestring that represents the password for the -LocalUserName you are using to ssh into the
-        Remote Host.
-
-    .Parameter DomainPasswordSS
-        This parameter is MANDATORY for the Parameter Set 'Domain'.
-
-        This parameter takes a securestring that represents the password for the -DomainUserName you are using to ssh into the
-        Remote Host.
-
-    .PARAMETER KeyFilePath
-        This parameter is OPTIONAL.
-
-        This parameter takes a string that represents the full path to the Key File you are using to ssh into the Remote Host.
-        Use this parameter instead of -LocalPasswordSS or -DomainPasswordSS.
-
-    .PARAMETER DomainUserForNoSudoPwd
-        This parameter is OPTIONAL.
-
-        This parameter takes a string or array of strings that represent Domain Users that you would like to allow to use
-        'sudo pwsh' without a password prompt. Each user must be in format: <DomainShortName>\<UserName>
-
-    .PARAMETER LocalUserForNoSudoPwd
-        This parameter is OPTIONAL.
-
-        This parameter takes a string or array of strings that represent Local Users on the Remote Host that you would like to
-        allow to use 'sudo pwsh' without a password prompt. Each user must be in format: <RemoteHostName>\<UserName>
-
-    .PARAMETER DomainGroupForNoSudoPwd
-        This parameter is OPTIONAL.
-
-        This parameter takes a string or array of strings that represent Domain Groups that you would like to allow to use
-        'sudo pwsh' without a password prompt.
-
-    .EXAMPLE
-        # Minimal parameters...
-
-        $RemoveSudoPwdSplatParams = @{
-            RemoteHostNameOrIP      = "zerowin16sshb"
-            DomainUserNameSS        = "zero\zeroadmin"
-            DomainPasswordSS        = $(Read-Host -Prompt "Enter password" -AsSecureString)
-        }
-        Remove-SudoPwd @RemoveSudoPwdSplatParams
-    
-    .EXAMPLE
-        # Remove sudo prompt requirement for multiple Domain Users
-
-        $RemoveSudoPwdSplatParams = @{
-            RemoteHostNameOrIP      = "zerowin16sshb"
-            DomainUserNameSS        = "zero\zeroadmin"
-            DomainPasswordSS        = $(Read-Host -Prompt "Enter password" -AsSecureString)
-            DomainUserForNoSudoPwd  = @('zero\zeroadmin','zero\zeroadminbackup')
-        }
-        Remove-SudoPwd @RemoveSudoPwdSplatParams
-
-    .EXAMPLE
-        # Remove sudo prompt requirement for a Domain Group
-
-        $RemoveSudoPwdSplatParams = @{
-            RemoteHostNameOrIP      = "zerowin16sshb"
-            DomainUserNameSS        = "zero\zeroadmin"
-            DomainPasswordSS        = $(Read-Host -Prompt "Enter password" -AsSecureString)
-            DomainGroupForNoSudoPwd  = @('Domain Admins')
-        }
-        Remove-SudoPwd @RemoveSudoPwdSplatParams
-
-    .EXAMPLE
-        # Using a local account on the Remote Host...
-
-        $RemoveSudoPwdSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            LocalPasswordSS         = $(Read-Host -Prompt "Enter password" -AsSecureString)
-        }
-        Remove-SudoPwd @RemoveSudoPwdSplatParams
-
-    .EXAMPLE
-        # Using an ssh Key File instead of a password...
-
-        $RemoveSudoPwdSplatParams = @{
-            RemoteHostNameOrIP      = "centos7nodomain"
-            LocalUserNameSS         = "centos7nodomain\vagrant"
-            KeyFilePath             = $HOME/.ssh/my_ssh_key
-        }
-        Remove-SudoPwd @RemoveSudoPwdSplatParams
-        
-#>
-function Remove-SudoPwd {
-    [CmdletBinding()]
-    Param(
         [Parameter(Mandatory=$True)]
-        [string]$RemoteHostNameOrIP,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <RemoteHostName>\<User>
-        [string]$LocalUserName,
-
-        [Parameter(
-            Mandatory=$True,
-            ParameterSetName='Domain'    
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string]$DomainUserName,
+        [ValidateSet("https","ssh")]
+        [string]$AuthMethod,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Local'
+            ParameterSetName='ssh'
         )]
-        [securestring]$LocalPasswordSS,
+        [string]$ExistingSSHPrivateKeyPath,
 
         [Parameter(
             Mandatory=$False,
-            ParameterSetName='Domain'
+            ParameterSetName='http'
         )]
-        [securestring]$DomainPasswordSS,
-
-        [Parameter(Mandatory=$False)]
-        [string]$KeyFilePath,
-
-        [Parameter(Mandatory=$False)]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string[]]$DomainUserForNoSudoPwd,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Local'
-        )]
-        [ValidatePattern("\\")] # Must be in format <DomainShortName>\<User>
-        [string[]]$LocalUserForNoSudoPwd,
-
-        [Parameter(
-            Mandatory=$False,
-            ParameterSetName='Domain'
-        )]
-        [string[]]$DomainGroupForNoSudoPwd
+        [securestring]$PersonalAccessToken
     )
 
-    #region >> Prep
-
-    if (!$(Get-Command ssh -ErrorAction SilentlyContinue)) {
-        Write-Error "Unable to find 'ssh'! Please make sure it is installed and part of your Environment/System Path! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($KeyFilePath) {
-        if (!$(Test-Path $KeyFilePath)) {
-            Write-Error "Unable to find KeyFilePath '$KeyFilePath'! Halting!"
+    if ($AuthMethod -eq "ssh") {
+        if (!$ExistingSSHPrivateKeyPath) {
+            if (!$(Test-Path "$HOME\.ssh\github_rsa")) {
+                $ExistingSSHPrivateKeyPath = Read-Host -Prompt "Please enter the full path to your github_rsa ssh private key."
+            }
+        }
+        if (!$(Test-Path $ExistingSSHPrivateKeyPath)) {
+            Write-Error "Unable to find path to existing Private Key '$ExistingSSHPrivateKeyPath'! Halting!"
             $global:FunctionResult = "1"
             return
         }
 
-        if (!$LocalUserName -and !$DomainUserName) {
-            Write-Error "You must supply either -LocalUserName or -DomainUserName when using the -KeyFilePath parameter! Halting!"
+        $SSHKeyGenPath = $(Get-ChildItem "C:\Program Files\Git" -Recurse -Filter "*ssh-keygen.exe").FullName
+        if (!$SSHKeyGenPath) {
+            Write-Error "Unable to fing git CmdLine instance of ssh-keygen.exe! Halting!"
             $global:FunctionResult = "1"
             return
         }
-    }
-
-    try {
-        $RemoteHostNetworkInfo = ResolveHost -HostNameOrIP $RemoteHostNameOrIP -ErrorAction Stop
-    }
-    catch {
-        Write-Error $_
-        Write-Error "Unable to resolve '$RemoteHostNameOrIP'! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalPasswordSS -or $DomainPasswordSS -and $KeyFilePath) {
-        Write-Error "Please use EITHER -KeyFilePath OR -LocalPasswordSS/-DomainPasswordSS in order to ssh to $RemoteHostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-
-    if ($LocalUserName) {
-        if ($($LocalUserName -split "\\")[0] -ne $RemoteHostNetworkInfo.HostName) {
-            $ErrMsg = "The HostName indicated by -LocalUserName (i.e. $($($LocalUserName -split "\\")[0]) is not the same as " +
-            "the HostName as determined by network resolution (i.e. $($RemoteHostNetworkInfo.HostName))! Halting!"
-            Write-Error $ErrMsg
+        $SSHExePath = $(Get-ChildItem "C:\Program Files\Git" -Recurse -Filter "ssh.exe").FullName
+        if (!$SSHExePath) {
+            Write-Error "Unable to fing git CmdLine instance of ssh.exe! Halting!"
             $global:FunctionResult = "1"
             return
         }
-    }
-    if ($DomainUserName) {
-        if ($($DomainUserName -split "\\")[0] -ne $($RemoteHostNetworkInfo.Domain -split "\.")[0]) {
-            $ErrMsg = "The Domain indicated by -DomainUserName (i.e. '$($($DomainUserName -split "\\")[0])') is not the same as " +
-            "the Domain as determined by network resolution (i.e. '$($($RemoteHostNetworkInfo.Domain -split "\.")[0])')! Halting!"
-            Write-Error $ErrMsg
-            $global:FunctionResult = "1"
-            return
-        }
-    }
 
-    if (!$DomainUserForNoSudoPwd -and !$LocalUserForNoSudoPwd -and !$DomainGroupForNoSudoPwd) {
-        if ($LocalUserName) {
-            $LocalUserForNoSudoPwd = $LocalUserName
-        }
-        if ($DomainUserName) {
-            $DomainUserForNoSudoPwd = $DomainUserName
-        }
-    }
+        # Check To Make Sure Online GitHub Account is aware of Existing Public Key
+        $PubSSHKeys = Invoke-Restmethod -Uri "https://api.github.com/users/$GitHubUserName/keys"
+        $tempfileLocations = @()
+        foreach ($PubKeyObject in $PubSSHKeys) {
+            $tmpFile = [IO.Path]::GetTempFileName()
+            $PubKeyObject.key | Out-File $tmpFile -Encoding ASCII
 
-    # Make sure the Remote Host is Linux
-    try {
-        Write-Host "Probing $RemoteHostNameOrIP to determine OS and available shell..."
+            $tempfileLocations +=, $tmpFile
+        }
+        $SSHPubKeyFingerPrintsFromGitHub = foreach ($TempPubSSHKeyFile in $tempfileLocations) {
+            $PubKeyFingerPrintPrep = & "$SSHKeyGenPath" -E md5 -lf "$TempPubSSHKeyFile"
+            $PubKeyFingerPrint = $($PubKeyFingerPrintPrep -split " ")[1] -replace "MD5:",""
+            $PubKeyFingerPrint
+        }
+        # Cleanup Temp Files
+        foreach ($TempPubSSHKeyFile in $tempfileLocations) {
+            Remove-Item $TempPubSSHKeyFile
+        }
 
-        $GetSSHProbeSplatParams = @{
-            RemoteHostNameOrIP  = $RemoteHostNameOrIP
-        }
-        if ($KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("KeyFilePath",$KeyFilePath)
-        }
-        if ($LocalUserName) {
-            $GetSSHProbeSplatParams.Add("LocalUserName",$LocalUserName)
-        }
-        if ($DomainUserName) {
-            $GetSSHProbeSplatParams.Add("DomainUserName",$DomainUserName)
-        }
-        if ($LocalPasswordSS -and !$KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-        }
-        if ($DomainPasswordSS -and !$KeyFilePath) {
-            $GetSSHProbeSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-        }
-        
-        $OSCheck = Get-SSHProbe @GetSSHProbeSplatParams -ErrorAction Stop
-    }
-    catch {
-        Write-Verbose $_.Exception.Message
-        $global:FunctionResult = "1"
-
-        try {
-            $null = Stop-AwaitSession
-        }
-        catch {
-            Write-Verbose $_.Exception.Message
-        }
-    }
-
-    if (!$OSCheck.OS -or !$OSCheck.Shell) {
-        try {
-            Write-Host "Probing $RemoteHostNameOrIP to determine OS and available shell..."
-
-            $GetSSHProbeSplatParams = @{
-                RemoteHostNameOrIP  = $RemoteHostNameOrIP
+        $GitHubOnlineIsAware = @()
+        foreach ($fingerprint in $SSHPubKeyFingerPrintsFromGitHub) {
+            $ExistingSSHPubKeyPath = "$ExistingSSHPrivateKeyPath.pub"
+            $LocalPubKeyFingerPrintPrep = & "$SSHKeyGenPath" -E md5 -lf "$ExistingSSHPubKeyPath"
+            $LocalPubKeyFingerPrint = $($LocalPubKeyFingerPrintPrep -split " ")[1] -replace "MD5:",""
+            if ($fingerprint -eq $LocalPubKeyFingerPrint) {
+                $GitHubOnlineIsAware +=, $fingerprint
             }
-            if ($KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("KeyFilePath",$KeyFilePath)
-            }
-            if ($LocalUserName) {
-                $GetSSHProbeSplatParams.Add("LocalUserName",$LocalUserName)
-            }
-            if ($DomainUserName) {
-                $GetSSHProbeSplatParams.Add("DomainUserName",$DomainUserName)
-            }
-            if ($LocalPasswordSS -and !$KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-            }
-            if ($DomainPasswordSS -and !$KeyFilePath) {
-                $GetSSHProbeSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-            }
-            
-            $OSCheck = Get-SSHProbe @GetSSHProbeSplatParams -ErrorAction Stop
         }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-    
-            try {
-                $null = Stop-AwaitSession
-            }
-            catch {
-                Write-Verbose $_.Exception.Message
-            }
-    
-            return
-        }
-    }
 
-    if (!$OSCheck.OS -or !$OSCheck.Shell) {
-        Write-Error "The Get-SSHProbe function was unable to identify $RemoteHostNameOrIP's platform or default shell! Please check your ssh connection/credentials. Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    if ($OSCheck.OS -ne "Linux") {
-        Write-Error "$RemoteHostNameOrIP does not appear to be running Linux! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
+        if ($GitHubOnlineIsAware.Count -gt 0) {
+            Write-Host "GitHub Online Account is aware of existing public key $ExistingSSHPubKeyPath. Testing the connection..." -ForegroundColor Green
 
-    # Check to make sure the user has sudo privileges
-    try {
-        $GetSudoStatusSplatParams = @{
-            RemoteHostNameOrIP  = $RemoteHostNameOrIP
-        }
-        if ($KeyFilePath) {
-            $GetSudoStatusSplatParams.Add("KeyFilePath",$KeyFilePath)
-        }
-        if ($LocalPasswordSS) {
-            $GetSudoStatusSplatParams.Add("LocalPasswordSS",$LocalPasswordSS)
-        }
-        if ($DomainPasswordSS) {
-            $GetSudoStatusSplatParams.Add("DomainPasswordSS",$DomainPasswordSS)
-        }
-        if ($LocalUserName) {
-            $GetSudoStatusSplatParams.Add("LocalUserName",$LocalUserName)
-        }
-        if ($DomainUserName) {
-            $GetSudoStatusSplatParams.Add("DomainUserName",$DomainUserName)
-        }
-        
-        $GetSudoStatusResult = Get-SudoStatus @GetSudoStatusSplatParams
-    }
-    catch {
-        Write-Error $_
-        $global:FunctionResult = "1"
-        return
-    }
-    
-    if (!$GetSudoStatusResult.HasSudoPrivileges) {
-        Write-Error "The user does not appear to have sudo privileges on $RemoteHostNameOrIP! Halting!"
-        $global:FunctionResult = "1"
-        return
-    }
+            $null = git config core.sshCommand "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath)) -F /dev/null" 2>&1
+            $env:GIT_SSH_COMMAND = "ssh -i $([regex]::Escape($ExistingSSHPrivateKeyPath))"
 
-    # If the user has sudo privileges but there's a password prompt, but -LocalPasswordSS and -DomainPasswordSS
-    # parameters were not used, we need to halt
-    if ($GetSudoStatusResult.PasswordPrompt) {
-        if (!$LocalPasswordSS -and !$DomainPasswordSS) {
-            Write-Error "The user will be prompted for a sudo password, but neither the -LocalPasswordSS nor -DomainPasswordSS parameter was provided! Halting!"
-            $global:FunctionResult = "1"
-            return
-        }
-    }
+            # Test the connection
+            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $ProcessInfo.FileName = $SSHExePath
+            $ProcessInfo.RedirectStandardError = $true
+            $ProcessInfo.RedirectStandardOutput = $true
+            $ProcessInfo.UseShellExecute = $false
+            $ProcessInfo.Arguments = "-o `"StrictHostKeyChecking=no`" -i `"$ExistingSSHPrivateKeyPath`" -T git@github.com"
+            $Process = New-Object System.Diagnostics.Process
+            $Process.StartInfo = $ProcessInfo
+            $Process.Start() | Out-Null
+            $Process.WaitForExit()
+            $stdout = $Process.StandardOutput.ReadToEnd()
+            $stderr = $Process.StandardError.ReadToEnd()
+            $AllOutput = $stdout + $stderr
 
-    if ($DomainUserForNoSudoPwd -or $LocalUserForNoSudoPwd -or $DomainGroupForNoSudoPwd) {
-        if ($DomainUserForNoSudoPwd) {
-            # Check to make sure the Domain User Exists
-            try {
-                $Domain = GetDomainName
-                $LDAPCreds = [pscredential]::new($DomainUserName,$DomainPasswordSS)
-                $UserLDAPObjectsPrep = GetUserObjectsInLDAP -Domain $Domain -LDAPCreds $LDAPCreds
-            }
-            catch {
-                Write-Error $_
-                $global:FunctionResult = "1"
-                return
-            }
-
-            # If we're on windows, $UserLDAPObjectsPrep contains DirectoryServices Objects
-            if (!$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT") {
-                $DomainUserNames = $UserLDAPObjectsPrep | foreach {$_.name[0].ToString()}
+            if ($AllOutput -match $GitHubUserName) {
+                Write-Host "GitHub Authentication via SSH for $GitHubUserName using '$ExistingSSHPrivateKeyPath' was successful." -ForegroundColor Green
+                $True
             }
             else {
-                # If we're on Linux, $UserLDAPObjectsPrep contains strings like - cn: zeroadmin
-                $DomainUserNames = $UserLDAPObjectsPrep | foreach {$_ -replace [regex]::Escape('cn: '),''}
-            }
-
-            $UsersNotFound = [System.Collections.Generic.List[PSObject]]::new()
-            foreach ($User in $DomainUserForNoSudoPwd) {
-                if ($DomainUserNames -notcontains $($User -split '\\')[-1]) {
-                    $UsersNotFound.Add($User)
-                }
-            }
-
-            if ($UsersNotFound.Count -gt 0) {
-                Write-Error "The following users were not found:`n$($UsersNotFound -join "`n")`nHalting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        if ($DomainGroupForNoSudoPwd) {
-            # Check to make sure the Domain Group Exists
-            try {
-                $Domain = GetDomainName
-                $LDAPCreds = [pscredential]::new($DomainUserName,$DomainPasswordSS)
-                $GroupLDAPObjectsPrep = GetGroupObjectsInLDAP -Domain $Domain -LDAPCreds $LDAPCreds
-            }
-            catch {
-                Write-Error $_
-                $global:FunctionResult = "1"
-                return
-            }
-
-            # If we're on windows, $GroupLDAPObjectsPrep contains DirectoryServices Objects
-            if (!$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT") {
-                $DomainGroupNames = $GroupLDAPObjectsPrep | foreach {$_.name[0].ToString()}
-            }
-            else {
-                # If we're on Linux, $GroupLDAPObjectsPrep contains strings like - cn: zeroadmin
-                $DomainGroupNames = $GroupLDAPObjectsPrep | foreach {$_ -replace [regex]::Escape('cn: '),''}
-            }
-
-            $GroupsNotFound = [System.Collections.Generic.List[PSObject]]::new()
-            foreach ($Group in $DomainGroupForNoSudoPwd) {
-                if ($DomainGroupNames -notcontains $Group) {
-                    $GroupsNotFound.Add($Group)
-                }
-            }
-
-            if ($GroupsNotFound.Count -gt 0) {
-                Write-Error "The following Groups were not found:`n$($GroupsNotFound -join "`n")`nHalting!"
-                $global:FunctionResult = "1"
-                return
+                Write-Warning "GitHub Authentication for $GitHubUserName using SSH was NOT successful. Please check your connection and/or keys."
+                $False
             }
         }
     }
-
-    if (!$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT") {
-        try {
-            if ($(Get-Module -ListAvailable).Name -notcontains 'WinSSH') {$null = Install-Module WinSSH -ErrorAction Stop}
-            if ($(Get-Module).Name -notcontains 'WinSSH') {$null = Import-Module WinSSH -ErrorAction Stop}
-            Import-Module "$($(Get-Module WinSSH).ModuleBase)\Await\Await.psd1" -ErrorAction Stop
-        }
-        catch {
-            Write-Error $_
-            $global:FunctionResult = "1"
-            return
+    if ($AuthMethod -eq "https") {
+        if (!$PersonalAccessToken) {
+            $PersonalAccessToken = Read-Host -Prompt "Please enter the GitHub Personal Access Token you would like to use for https authentication." -AsSecureString
         }
 
-        try {
-            $null = Stop-AwaitSession
+        # Convert SecureString to PlainText
+        $PersonalAccessTokenPT = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PersonalAccessToken))
+        $Headers = @{
+            Authorization = "token $PersonalAccessTokenPT"
         }
-        catch {
-            Write-Verbose $_.Exception.Message
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos").Name
+        # Rest API Alternate Method
+        <#
+        $Token = "$GitHubUserName`:$PersonalAccessTokenPT"
+        $Base64Token = [System.Convert]::ToBase64String([char[]]$Token)
+        $Headers = @{
+            Authorization = "Basic {0}" -f $Base64Token
         }
-    }
+        $PublicAndPrivateRepos = $(Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/user/repos?access_token=$PersonalAccessTokenPT").Name
+        #>
 
-    if ($PSVersionTable.Platform -eq "Unix") {
-        # Determine if we have the required Linux commands
-        [System.Collections.ArrayList]$LinuxCommands = @(
-            "echo"
-            "expect"
-        )
-        [System.Collections.ArrayList]$CommandsNotPresent = @()
-        foreach ($CommandName in $LinuxCommands) {
-            $CommandCheckResult = command -v $CommandName
-            if (!$CommandCheckResult) {
-                $null = $CommandsNotPresent.Add($CommandName)
-            }
+        if ($PublicAndPrivateRepos -ne $null) {
+            Write-Host "GitHub Authentication via https for $GitHubUserName was successful!" -ForegroundColor Green
+            $True
         }
-
-        if ($CommandsNotPresent.Count -gt 0) {
-            [System.Collections.ArrayList]$FailedInstalls = @()
-            if ($CommandsNotPresent -contains "echo") {
-                try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "coreutils" -CommandName "echo"
-                }
-                catch {
-                    $null = $FailedInstalls.Add("coreutils")
-                }
-            }
-            if ($CommandsNotPresent -contains "expect") {
-                try {
-                    $null = InstallLinuxPackage -PossiblePackageNames "expect" -CommandName "expect"
-                }
-                catch {
-                    $null = $FailedInstalls.Add("expect")
-                }
-            }
-    
-            if ($FailedInstalls.Count -gt 0) {
-                Write-Error "The following Linux packages are required, but were not able to be installed:`n$($FailedInstalls -join "`n")`nHalting!"
-                $global:FunctionResult = "1"
-                return
-            }
-        }
-
-        [System.Collections.ArrayList]$CommandsNotPresent = @()
-        foreach ($CommandName in $LinuxCommands) {
-            $CommandCheckResult = command -v $CommandName
-            if (!$CommandCheckResult) {
-                $null = $CommandsNotPresent.Add($CommandName)
-            }
-        }
-    
-        if ($CommandsNotPresent.Count -gt 0) {
-            Write-Error "The following Linux commands are required, but not present on $env:ComputerName:`n$($CommandsNotPresent -join "`n")`nHalting!"
-            $global:FunctionResult = "1"
-            return
+        else {
+            Write-Warning "GitHub Authentication via https for $GitHubUserName was NOT successful. Please check your Personal Authentication Token."
+            $False
         }
     }
-
-    if ($LocalPasswordSS) {
-        $LocalPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($LocalPasswordSS))
-    }
-    If ($DomainPasswordSS) {
-        $DomainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($DomainPasswordSS))
-    }
-
-    $OnWindows = !$PSVersionTable.Platform -or $PSVersionTable.Platform -eq "Win32NT"
-
-    #endregion >> Prep
-
-    #region >> Main
-
-    # cat /etc/sudoers | grep -Eic 'Cmnd_Alias SUDO_PWSH = /bin/pwsh' > /dev/null && echo present || echo absent
-    [System.Collections.Generic.List[PSObject]]$UpdateSudoersScript = @(
-        'pscorepath=$(command -v pwsh)'
-        "cat /etc/sudoers | grep -Eic 'Cmnd_Alias SUDO_PWSH =' > /dev/null && echo present || echo 'Cmnd_Alias SUDO_PWSH = '`"`$pscorepath`" | sudo EDITOR='tee -a' visudo"
-        "cat /etc/sudoers | grep -Eic 'Defaults!SUDO_PWSH !requiretty' > /dev/null && echo present || echo 'Defaults!SUDO_PWSH !requiretty' | sudo EDITOR='tee -a' visudo"
-    )
-    if ($DomainUserForNoSudoPwd) {
-        foreach ($User in $DomainUserForNoSudoPwd) {
-            $DomainNameShort = $($User -split "\\")[0]
-            $FullUserName = $($User -split "\\")[-1]
-
-            if (!$OnWindows) {
-                $AddUserString = "cat /etc/sudoers | grep -Eic '\%$DomainNameShort..$FullUserName ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > " +
-                "/dev/null && echo present || echo '%$DomainNameShort\\\$FullUserName ALL=(ALL) NOPASSWD: SUDO_PWSH' | sudo EDITOR='tee -a' visudo"
-            }
-            else {
-                $AddUserString = "cat /etc/sudoers | grep -Eic '\%$DomainNameShort..$FullUserName ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > " +
-                "/dev/null && echo present || echo '%$DomainNameShort\\$FullUserName ALL=(ALL) NOPASSWD: SUDO_PWSH' | sudo EDITOR='tee -a' visudo"
-            }
-
-            $UpdateSudoersScript.Add($AddUserString)
-        }
-    }
-    if ($DomainGroupForNoSudoPwd) {
-        $DomainNameShort = $($Domain -split '\.')[0]
-        
-        foreach ($Group in $DomainGroupForNoSudoPwd) {
-            # Ultimately needs to look like:
-            #     %zero\\Domain\ Admins    ALL=(ALL)    ALL
-            $FinalGroup = $Group -replace "[\s]","\ "
-            $FinalGroupRegex = $Group -replace "[\s]",". "
-            $FinalGroupAddString = $Group -replace "[\s]","\\ "
-
-            if (!$OnWindows) {
-                $AddUserString = "cat /etc/sudoers | grep -Eic '\%$DomainNameShort..$FinalGroupRegex ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > " +
-                "/dev/null && echo present || echo '%$DomainNameShort\\\$FinalGroupAddString ALL=(ALL) NOPASSWD: SUDO_PWSH' | sudo EDITOR='tee -a' visudo"
-            }
-            else {
-                $AddUserString = "cat /etc/sudoers | grep -Eic '\%$DomainNameShort..$FinalGroupRegex ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > " +
-                "/dev/null && echo present || echo '%$DomainNameShort\\$FinalGroup ALL=(ALL) NOPASSWD: SUDO_PWSH' | sudo EDITOR='tee -a' visudo"
-            }
-
-            $UpdateSudoersScript.Add($AddUserString)
-        }
-    }
-    if ($LocalUserForNoSudoPwd) {
-        foreach ($User in $LocalUserForNoSudoPwd) {
-            $FullUserName = $($User -split "\\")[-1]
-
-            $AddUserString = "cat /etc/sudoers | grep -Eic '$FullUserName ALL=\(ALL\) NOPASSWD: SUDO_PWSH' > " +
-            "/dev/null && echo present || echo '$FullUserName ALL=(ALL) NOPASSWD: SUDO_PWSH' | sudo EDITOR='tee -a' visudo"
-
-            $UpdateSudoersScript.Add($AddUserString)
-        }
-    }
-    $null = $UpdateSudoersScript.Add('echo sudoersUpdated')
-
-    $SSHScriptBuilderSplatParams = @{
-        RemoteHostNameOrIP      = $RemoteHostNameOrIP
-    }
-    if ($LocalUserName) {
-        $null = $SSHScriptBuilderSplatParams.Add('LocalUserName',$LocalUserName)
-    }
-    if ($DomainUserName) {
-        $null = $SSHScriptBuilderSplatParams.Add('DomainUserName',$DomainUserName)
-    }
-    if ($LocalPassword) {
-        $null = $SSHScriptBuilderSplatParams.Add('LocalPassword',$LocalPassword)
-    }
-    if ($DomainPassword) {
-        $null = $SSHScriptBuilderSplatParams.Add('DomainPassword',$DomainPassword)
-    }
-
-    if ($OnWindows) {
-        $null = $SSHScriptBuilderSplatParams.Add('WindowsWaitTimeMin',1)
-    }
-        
-    $null = $SSHScriptBuilderSplatParams.Add('ElevatedSSHScriptArray',$UpdateSudoersScript)
-
-    $FinalOutput = SSHScriptBuilder @SSHScriptBuilderSplatParams
-    
-    $FinalOutput
-
-    #endregion >> Main
 }
 
 
@@ -4018,282 +2349,22 @@ if ($PSVersionTable.Platform -eq "Win32NT" -and $PSVersionTable.PSEdition -eq "C
 }
 
 [System.Collections.ArrayList]$script:FunctionsForSBUse = @(
-    ${Function:AddWinRMTrustedHost}.Ast.Extent.Text
-    ${Function:AddWinRMTrustLocalHost}.Ast.Extent.Text
-    ${Function:DownloadNugetPackage}.Ast.Extent.Text
-    ${Function:GetArchScripts}.Ast.Extent.Text
-    ${Function:GetCentOS7Scripts}.Ast.Extent.Text
-    ${Function:GetComputerObjectsInLDAP}.Ast.Extent.Text
-    ${Function:GetDebian8Scripts}.Ast.Extent.Text
-    ${Function:GetDebian9Scripts}.Ast.Extent.Text
-    ${Function:GetDomainController}.Ast.Extent.Text
-    ${Function:GetDomainName}.Ast.Extent.Text
     ${Function:GetElevation}.Ast.Extent.Text
-    ${Function:GetFedoraScripts}.Ast.Extent.Text
-    ${Function:GetGroupObjectsInLDAP}.Ast.Extent.Text
-    ${Function:GetMacOSScripts}.Ast.Extent.Text
-    ${Function:GetModuleDependencies}.Ast.Extent.Text
-    ${Function:GetOpenSUSE423Scripts}.Ast.Extent.Text
-    ${Function:GetRaspbianScripts}.Ast.Extent.Text
-    ${Function:GetUbuntu1404Scripts}.Ast.Extent.Text
-    ${Function:GetUbuntu1604Scripts}.Ast.Extent.Text
-    ${Function:GetUbuntu1804Scripts}.Ast.Extent.Text
-    ${Function:GetUserObjectsInLDAP}.Ast.Extent.Text
-    ${Function:GetWindowsScripts}.Ast.Extent.Text
-    ${Function:InstallLinuxPackage}.Ast.Extent.Text
-    ${Function:InvokeModuleDependencies}.Ast.Extent.Text
-    ${Function:InvokePSCompatibility}.Ast.Extent.Text
-    ${Function:ManualPSGalleryModuleInstall}.Ast.Extent.Text
-    ${Function:ResolveHost}.Ast.Extent.Text
-    ${Function:SSHScriptBuilder}.Ast.Extent.Text
-    ${Function:TestIsValidIPAddress}.Ast.Extent.Text
-    ${Function:TestLDAP}.Ast.Extent.Text
-    ${Function:Bootstrap-PowerShellCore}.Ast.Extent.Text
-    ${Function:Configure-PwshRemoting}.Ast.Extent.Text
-    ${Function:Get-SSHProbe}.Ast.Extent.Text
-    ${Function:Get-SudoStatus}.Ast.Extent.Text
-    ${Function:Remove-SudoPwd}.Ast.Extent.Text
+    ${Function:NewUniqueString}.Ast.Extent.Text
+    ${Function:Clone-GitRepo}.Ast.Extent.Text
+    ${Function:Configure-GitCmdLine}.Ast.Extent.Text
+    ${Function:Install-GitCmdLine}.Ast.Extent.Text
+    ${Function:Install-GitDesktop}.Ast.Extent.Text
+    ${Function:Manage-StoredCredentials}.Ast.Extent.Text
+    ${Function:New-GitRepo}.Ast.Extent.Text
+    ${Function:Test-GitAuthentication}.Ast.Extent.Text
 )
-
-
-# From: https://gist.github.com/skyl/36563a5be809e54dc139
-$MacBrewInstallNoSudo = @'
-#!/System/Library/Frameworks/Ruby.framework/Versions/Current/usr/bin/ruby
-
-argsarray = ARGV
-
-# SET YOUR_HOME TO THE ABSOLUTE PATH OF YOUR HOME DIRECTORY
-# chmod +x install.rb
-# ./install.rb
-YOUR_HOME = "#{ARGV[0]}"
-
-HOMEBREW_PREFIX = "#{YOUR_HOME}/usr/local"
-HOMEBREW_CACHE = '/Library/Caches/Homebrew'
-HOMEBREW_REPO = 'https://github.com/Homebrew/homebrew'
-
-module Tty extend self
-  def blue; bold 34; end
-  def white; bold 39; end
-  def red; underline 31; end
-  def reset; escape 0; end
-  def bold n; escape "1;#{n}" end
-  def underline n; escape "4;#{n}" end
-  def escape n; "\033[#{n}m" if STDOUT.tty? end
-end
-
-class Array
-  def shell_s
-    cp = dup
-    first = cp.shift
-    cp.map{ |arg| arg.gsub " ", "\\ " }.unshift(first) * " "
-  end
-end
-
-def ohai *args
-  puts "#{Tty.blue}==>#{Tty.white} #{args.shell_s}#{Tty.reset}"
-end
-
-def warn warning
-  puts "#{Tty.red}Warning#{Tty.reset}: #{warning.chomp}"
-end
-
-def system *args
-  abort "Failed during: #{args.shell_s}" unless Kernel.system(*args)
-end
-
-def sudo *args
-  #ohai "/usr/bin/sudo", *args
-  #system "/usr/bin/sudo", *args
-  system *args
-end
-
-def getc  # NOTE only tested on OS X
-  system "/bin/stty raw -echo"
-  if STDIN.respond_to?(:getbyte)
-    STDIN.getbyte
-  else
-    STDIN.getc
-  end
-ensure
-  system "/bin/stty -raw echo"
-end
-
-def wait_for_user
-  puts
-  puts "Press RETURN to continue or any other key to abort"
-  c = getc
-  # we test for \r and \n because some stuff does \r instead
-  abort unless c == 13 or c == 10
-end
-
-module Version
-  def <=>(other)
-    split(".").map { |i| i.to_i } <=> other.split(".").map { |i| i.to_i }
-  end
-end
-
-def macos_version
-  @macos_version ||= `/usr/bin/sw_vers -productVersion`.chomp[/10\.\d+/].extend(Version)
-end
-
-def git
-  @git ||= if ENV['GIT'] and File.executable? ENV['GIT']
-    ENV['GIT']
-  elsif Kernel.system '/usr/bin/which -s git'
-    'git'
-  else
-    exe = `xcrun -find git 2>/dev/null`.chomp
-    exe if $? && $?.success? && !exe.empty? && File.executable?(exe)
-  end
-
-  return unless @git
-  # Github only supports HTTPS fetches on 1.7.10 or later:
-  # https://help.github.com/articles/https-cloning-errors
-  `#{@git} --version` =~ /git version (\d\.\d+\.\d+)/
-  return if $1.nil? or $1.extend(Version) < "1.7.10"
-
-  @git
-end
-
-def chmod?(d)
-  File.directory?(d) && !(File.readable?(d) && File.writable?(d) && File.executable?(d))
-end
-
-def chgrp?(d)
-  !File.grpowned?(d)
-end
-
-# Invalidate sudo timestamp before exiting
-#at_exit { Kernel.system "/usr/bin/sudo", "-k" }
-
-# The block form of Dir.chdir fails later if Dir.CWD doesn't exist which I
-# guess is fair enough. Also sudo prints a warning message for no good reason
-Dir.chdir "#{YOUR_HOME}/usr"
-
-####################################################################### script
-abort "See Linuxbrew: http://brew.sh/linuxbrew/" if /linux/i === RUBY_PLATFORM
-abort "MacOS too old, see: https://github.com/mistydemeo/tigerbrew" if macos_version < "10.5"
-abort "Don't run this as root!" if Process.uid == 0
-#abort <<-EOABORT unless `groups`.split.include? "admin"
-#This script requires the user #{ENV['USER']} to be an Administrator. If this
-#sucks for you then you can install Homebrew in your home directory or however
-#you please; please refer to our homepage. If you still want to use this script
-#set your user to be an Administrator in System Preferences or `su' to a
-#non-root user with Administrator privileges.
-#EOABORT
-abort <<-EOABORT unless Dir["#{HOMEBREW_PREFIX}/.git/*"].empty?
-It appears Homebrew is already installed. If your intent is to reinstall you
-should do the following before running this installer again:
-    rm -rf #{HOMEBREW_PREFIX}/Cellar #{HOMEBREW_PREFIX}/.git && brew cleanup
-EOABORT
-# Tests will fail if the prefix exists, but we don't have execution
-# permissions. Abort in this case.
-abort <<-EOABORT if File.directory? HOMEBREW_PREFIX and not File.executable? HOMEBREW_PREFIX
-The Homebrew prefix, #{HOMEBREW_PREFIX}, exists but is not searchable. If this is
-not intentional, please restore the default permissions and try running the
-installer again:
-    sudo chmod 775 #{HOMEBREW_PREFIX}
-EOABORT
-abort <<-EOABORT if `/usr/bin/xcrun clang 2>&1` =~ /license/ && !$?.success?
-You have not agreed to the Xcode license.
-Before running the installer again please agree to the license by opening
-Xcode.app or running:
-    sudo xcodebuild -license
-EOABORT
-
-ohai "This script will install:"
-puts "#{HOMEBREW_PREFIX}/bin/brew"
-puts "#{HOMEBREW_PREFIX}/Library/..."
-puts "#{HOMEBREW_PREFIX}/share/man/man1/brew.1"
-
-chmods = %w( . bin etc include lib lib/pkgconfig Library sbin share var var/log share/locale share/man
-             share/man/man1 share/man/man2 share/man/man3 share/man/man4
-             share/man/man5 share/man/man6 share/man/man7 share/man/man8
-             share/info share/doc share/aclocal ).
-             map { |d| File.join(HOMEBREW_PREFIX, d) }.select { |d| chmod?(d) }
-chgrps = chmods.select { |d| chgrp?(d) }
-
-unless chmods.empty?
-  ohai "The following directories will be made group writable:"
-  puts(*chmods)
-end
-unless chgrps.empty?
-  ohai "The following directories will have their group set to #{Tty.underline 39}admin#{Tty.reset}:"
-  puts(*chgrps)
-end
-
-wait_for_user if STDIN.tty?
-
-if File.directory? HOMEBREW_PREFIX
-  sudo "/bin/chmod", "g+rwx", *chmods unless chmods.empty?
-  sudo "/usr/bin/chgrp", "admin", *chgrps unless chgrps.empty?
-else
-  sudo "/bin/mkdir", HOMEBREW_PREFIX
-  sudo "/bin/chmod", "g+rwx", HOMEBREW_PREFIX
-  # the group is set to wheel by default for some reason
-  sudo "/usr/bin/chgrp", "admin", HOMEBREW_PREFIX
-end
-
-sudo "/bin/mkdir", HOMEBREW_CACHE unless File.directory? HOMEBREW_CACHE
-sudo "/bin/chmod", "g+rwx", HOMEBREW_CACHE if chmod? HOMEBREW_CACHE
-
-if macos_version >= "10.9"
-  developer_dir = `/usr/bin/xcode-select -print-path 2>/dev/null`.chomp
-  if developer_dir.empty? || !File.exist?("#{developer_dir}/usr/bin/git")
-    ohai "Installing the Command Line Tools (expect a GUI popup):"
-    sudo "/usr/bin/xcode-select", "--install"
-    puts "Press any key when the installation has completed."
-    getc
-  end
-end
-
-ohai "Downloading and installing Homebrew..."
-Dir.chdir HOMEBREW_PREFIX do
-  if git
-    # we do it in four steps to avoid merge errors when reinstalling
-    system git, "init", "-q"
-
-    # "git remote add" will fail if the remote is defined in the global config
-    system git, "config", "remote.origin.url", HOMEBREW_REPO
-    system git, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"
-
-    args = git, "fetch", "origin", "master:refs/remotes/origin/master", "-n"
-    args << "--depth=1" if ARGV.include? "--fast"
-    system(*args)
-
-    system git, "reset", "--hard", "origin/master"
-  else
-    # -m to stop tar erroring out if it can't modify the mtime for root owned directories
-    # pipefail to cause the exit status from curl to propogate if it fails
-    # we use -k for curl because Leopard has a bunch of bad SSL certificates
-    curl_flags = "fsSL"
-    curl_flags << "k" if macos_version <= "10.5"
-    system "/bin/bash -o pipefail -c '/usr/bin/curl -#{curl_flags} #{HOMEBREW_REPO}/tarball/master | /usr/bin/tar xz -m --strip 1'"
-  end
-end
-
-warn "#{HOMEBREW_PREFIX}/bin is not in your PATH." unless ENV['PATH'].split(':').include? "#{HOMEBREW_PREFIX}/bin"
-
-ohai "Installation successful!"
-ohai "Next steps"
-
-if macos_version < "10.9" and macos_version > "10.6"
-  `/usr/bin/cc --version 2> /dev/null` =~ %r[clang-(\d{2,})]
-  version = $1.to_i
-  puts "Install the #{Tty.white}Command Line Tools for Xcode#{Tty.reset}: https://developer.apple.com/downloads" if version < 425
-else
-  puts "Install #{Tty.white}Xcode#{Tty.reset}: https://developer.apple.com/xcode" unless File.exist? "/usr/bin/cc"
-end
-
-puts "Run `brew doctor` #{Tty.white}before#{Tty.reset} you install anything"
-puts "Run `brew help` to get started"
-'@
 
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUT98r1MYOmwYqFx/PU0pm8Vrj
-# ZISgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbKvPoQ1CWIxfGvXtGmpqbIqn
+# P5ugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -4350,11 +2421,11 @@ puts "Run `brew help` to get started"
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFJTH02ll1Nu87xwD
-# KMDalxc9aipdMA0GCSqGSIb3DQEBAQUABIIBALzbgGcaN5/lOKwQZ21gJPVMZl7z
-# yxXDBFIdioZu2iXZ49Kx7kdLmMRWdC3d/iBXo45HYJQ61jtSIfBXdxZWk5CoXS4g
-# B7eQOKxmZm0Tv1XacVzzln8yz8IRCcpQz/X9+Z4nOAlIPwmo7Q7UfTCGZmX11t3M
-# +Btxaha5xbC7ggt61G+V7TxMRuaRge26B3BR8YvfXiPrcO8UmpJHHxiAoHuCeaw/
-# w4ZeC0INNJhChexMv0/LIsfRTTIBjmYLyzsxJvE1P2wVXbQVMqAs7jYjwC7G1Tcq
-# bJxhcwrb1lP+fZNBAvBUoNgTNAFvYSoUIJInqDf7D6VFDfPY1mlPe9vwsmk=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFpbL2RPyVpAsAbd
+# X6vNTaf7M7bOMA0GCSqGSIb3DQEBAQUABIIBAKutG+pm3DrBGp2GZuoF9bjLLMlM
+# Ww7Az8xyG/43qL7U/jMoTUKmXc6eWN+PbYF3fzMwV5I/K+JpD74fWf6eng56fuVX
+# G/OMIJDqhKeJrXTwoSwhc7GH57/362rQtQ+HJT6U3v6upNR0UbIXAgGpiCDm+o8N
+# HAL0Hk2kv+YluEglQ5QNoxqe7XnwjWFKNEfOLwjAgXpUrDOKCaybw+iltiiWe5Fu
+# CEXB5NMbSan3vDMpJn+i+thMxjxUm1SSqxi8irf+UmXGajKSCkEKmBxoRs80/4gx
+# W5YuW9BQmAfgttkI0R+aAcVsEhUtGP2cT5/BzXpGikq2adPrEQD+/2qYcf0=
 # SIG # End signature block

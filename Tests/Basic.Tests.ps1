@@ -57,84 +57,30 @@ Describe -Name "General Project Validation: $env:BHProjectName" -Tag 'Validation
         $Module = Get-Module $env:BHProjectName
         $Module.Name -eq $env:BHProjectName | Should Be $True
         $Commands = $Module.ExportedCommands.Keys
-        $Commands -contains 'AddWinRMTrustedHost' | Should Be $False
-        $Commands -contains 'AddWinRMTrustLocalHost' | Should Be $False
-        $Commands -contains 'DownloadNuGetPackage' | Should Be $False
-        $Commands -contains 'GetArchScripts' | Should Be $False
-        $Commands -contains 'GetCentOS7Scripts' | Should Be $False
-        $Commands -contains 'GetComputerObjectsInLDAP' | Should Be $False
-        $Commands -contains 'GetDebian8Scripts' | Should Be $False
-        $Commands -contains 'GetDebian9Scripts' | Should Be $False
-        $Commands -contains 'GetDomainController' | Should Be $False
-        $Commands -contains 'GetDomainName' | Should Be $False
         $Commands -contains 'GetElevation' | Should Be $False
-        $Commands -contains 'GetFedoraScripts' | Should Be $False
-        $Commands -contains 'GetGroupPbjectsInLDAP' | Should Be $False
-        $Commands -contains 'GetMacOSScripts' | Should Be $False
-        $Commands -contains 'GetModuleDependencies' | Should Be $False
-        $Commands -contains 'GetOpenSUSE423Scripts' | Should Be $False
-        $Commands -contains 'GetRaspbianScripts' | Should Be $False
-        $Commands -contains 'GetUbuntu1404Scripts' | Should Be $False
-        $Commands -contains 'GetUbuntu1604Scripts' | Should Be $False
-        $Commands -contains 'GetUbuntu1804Scripts' | Should Be $False
-        $Commands -contains 'GetUserObjectsInLDAP' | Should Be $False
-        $Commands -contains 'GetWindowsScripts' | Should Be $False
-        $Commands -contains 'InstallLinuxPackage' | Should Be $False
-        $Commands -contains 'InvokeModuleDependencies' | Should Be $False
-        $Commands -contains 'InvokePSCompatibility' | Should Be $False
-        $Commands -contains 'ManualPSGalleryModuleInstall' | Should Be $False
-        $Commands -contains 'ResolveHost' | Should Be $False
-        $Commands -contains 'SSHScriptBuilder' | Should Be $False
-        $Commands -contains 'TestIsValidIPAddress' | Should Be $False
-        $Commands -contains 'TestLDAP' | Should Be $False
+        $Commands -contains 'NewUniqueString' | Should Be $False
 
-        $Commands -contains 'Bootstrap-PowerShellCore' | Should Be $True
-        $Commands -contains 'Configure-PwshRemoting' | Should Be $True
-        $Commands -contains 'Get-SSHProbe' | Should Be $True
-        $Commands -contains 'Get-SudoStatus' | Should Be $True
-        $Commands -contains 'Remove-SudoPwd' | Should Be $True
+        $Commands -contains 'Clone-GitRepo' | Should Be $True
+        $Commands -contains 'Configure-GitCmdLine' | Should Be $True
+        $Commands -contains 'Install-GitCmdLine' | Should Be $True
+        $Commands -contains 'Install-GitDesktop' | Should Be $True
+        $Commands -contains 'Manage-StoredCredentials' | Should Be $True
+        $Commands -contains 'New-GitRepo' | Should Be $True
+        $Commands -contains 'Test-GitAuthentication' | Should Be $True
     }
 
     It "Module '$env:BHProjectName' Private Functions Are Available in Internal Scope" {
         $Module = Get-Module $env:BHProjectName
-        [bool]$Module.Invoke({Get-Item function:AddWinRMTrustedHost}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:AddWinRMTrustLocalHost}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:DownloadNuGetPackage}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetArchScripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetCentOS7Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetComputerObjectsInLDAP}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetDebian8Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetDebian9Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetDomainController}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetDomainName}) | Should Be $True
         [bool]$Module.Invoke({Get-Item function:GetElevation}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetFedoraScripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetGroupObjectsInLDAP}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetMacOSScripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetModuleDependencies}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetOpenSUSE423Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetRaspbianScripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetUbuntu1404Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetUbuntu1604Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetUbuntu1804Scripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetUserObjectsInLDAP}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:GetWindowsScripts}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:InstallLinuxPackage}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:InvokeModuleDependencies}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:InvokePSCompatibility}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:ManualPSGalleryModuleInstall}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:ResolveHost}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:SSHScriptBuilder}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:TestIsValidIPAddress}) | Should Be $True
-        [bool]$Module.Invoke({Get-Item function:TestLDAP}) | Should Be $True
+        [bool]$Module.Invoke({Get-Item function:NewUniqueString}) | Should Be $True
     }
 }
 
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUNhP34DVgd98QATd2WlwNX4zr
-# 0O+gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQURmzXYQIjCauY45LchnR+picn
+# HjKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -191,11 +137,11 @@ Describe -Name "General Project Validation: $env:BHProjectName" -Tag 'Validation
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFNP0vVXlSyDUkpqN
-# 4SY1rKYZOJ65MA0GCSqGSIb3DQEBAQUABIIBAB8wk6MTL5wvHbH+FGnfuOe3DfNF
-# 4IA3wq2n1bmGROhdC2O0LemAVQ8my2q/AMa6e1BqvmkK/pnOl76bj+HgyS+vtKBg
-# RR8NWI1+LvZ4UAIWR+D3iDi9E4CTjBr+I0xtfLN0P2toufEZ9nNsunoKtCKnZhvM
-# MpaS+nlimOHpPUTrEVMvGNW8fnwttbS/l+uQF2eSTb+h2Rg+yGL4wffhkrueVi/1
-# g9d2zLMt5VVywNWbnbUl1zLiHN95QlPlWS08RuZDF9OB0zUhH55A0ev02CfAHWO/
-# w8Ejx2dVUfwTbpC3JzzZ1RPL3kjhVH3IhkWdefRQtcqSP9XO6zIqxKvMUFo=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFBOajBzNdI/zkL9n
+# NRa86LO/2mnkMA0GCSqGSIb3DQEBAQUABIIBAFErTtog9RWXBDlriQTzaoHt+gKH
+# Q0dS3dWl1+RjqbTL2EkrJVXb/h803x4MGeCwCl1idAhEmx4JFqnRR/r4XSenx0c6
+# VMO5AEDVswBQNjU5wxcBBAIo9xghrlmHsB0JLUxODFSwEOWdgc7LpEH+U8f2pri4
+# RDUGBlX91wkHS2fYWexAJV5XfhrBFQVNMYtcvHAF8UO7l5fR2/c/OnIomXkW7RtS
+# K2OGlsoguGZkWRkSNi0ANFzuGyKzK2d3u7qIdMxPyTEFQGWNPo1OZOSHbEPjngmt
+# QZumFV8lJijrJ5s+z2AePaNo9+wsBDpRcfiZtufRNFfsu7mDlR7duobSFrc=
 # SIG # End signature block
