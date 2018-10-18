@@ -168,8 +168,8 @@ if ($ModulesToInstallAndImport.Count -gt 0) {
 
     Add-Content -Value $FunctionTextToAdd -Path "$env:BHModulePath\$env:BHProjectName.psm1"
 
-    # Add the Import-Module Universal.Dashboard Module else install .Net Framework 4.7.2 code
-    $ImportUDCommCode = @'
+    # Add WindowsCompatibility code
+    $ImportWinCompat = @'
 
 if ($PSVersionTable.Platform -eq "Win32NT" -and $PSVersionTable.PSEdition -eq "Core") {
     if (![bool]$(Get-Module -ListAvailable WindowsCompatibility)) {
@@ -197,7 +197,7 @@ if ($PSVersionTable.Platform -eq "Win32NT" -and $PSVersionTable.PSEdition -eq "C
 
 '@
 
-    Add-Content -Value $ImportUDCommCode -Path "$env:BHModulePath\$env:BHProjectName.psm1"
+    Add-Content -Value $ImportWinCompat -Path "$env:BHModulePath\$env:BHProjectName.psm1"
 
     # Finally, add array the variables contained in VariableLibrary.ps1 if it exists in case we want to use this Module Remotely
     if (Test-Path "$env:BHModulePath\VariableLibrary.ps1") {

@@ -9,16 +9,16 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = 'BootstrapPowerShellCore.psm1'
+RootModule = 'GitEnv.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.4'
+ModuleVersion = '0.5.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
 
 # ID used to uniquely identify this module
-GUID = '01fe7435-898f-4860-b9b7-e00500acc6b6'
+GUID = '6377cee0-4476-4c27-af9f-88f728542381'
 
 # Author of this module
 Author = 'pldmgg'
@@ -30,7 +30,7 @@ CompanyName = 'pldmgg'
 Copyright = '(c) 2018 pldmgg. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Functions to install PowerShell Core on a Remote Host. Opitionally configure pwsh PSRemoting on the Remote Host. GitHub: https://github.com/pldmgg/BootstrapPowerShellCore'
+Description = 'Functions to enhance git experience on Windows. GitHub: https://github.com/pldmgg/GitEnv'
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '5.1'
@@ -69,7 +69,9 @@ PowerShellVersion = '5.1'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Bootstrap-PowerShellCore','Configure-PwshRemoting','Get-SSHProbe','Get-SudoStatus','Remove-SudoPwd'
+FunctionsToExport = 'Clone-GitRepo','Configure-GitCmdLine','Install-GitCmdLine','Install-GitDesktop',
+                    'Manage-StoredCredentials','New-GitRepo','Test-GitAuthentication'
+
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'
@@ -87,7 +89,7 @@ AliasesToExport = '*'
 # ModuleList = @()
 
 # List of all files packaged with this module
-FileList = 'BootstrapPowerShellCore.psm1', 'BootstrapPowerShellCore.psd1'
+FileList = 'GitEnv.psm1', 'GitEnv.psd1'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
@@ -95,7 +97,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = @("pwsh","PowerShellCore","powershell-core","install","bootstrap","crossplatform","cross-platform")
+        Tags = @("git","gitcmdline","gitdesktop","install","configure","repoo")
 
         # A URL to the license for this module.
         LicenseUri = 'http://www.apache.org/licenses/LICENSE-2.0'

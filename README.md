@@ -1,8 +1,8 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/github/pldmgg/=master&svg=true)](https://ci.appveyor.com/project/pldmgg/sudo/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/github/pldmgg/GitEnv?branch=master&svg=true)](https://ci.appveyor.com/project/pldmgg/GitEnv/branch/master)
 
 
 # GitEnv
-<Synopsis>
+Functions to enhance git experience on Windows.
 
 ## Getting Started
 
@@ -30,9 +30,42 @@
 ### Scenario 1
 
 ```powershell
-powershell code
+$GitAuthParams = @{
+    GitHubUserName = "pldmgg"
+    GitHubEmail = "pldmgg@mykolab.com"
+    AuthMethod = "https"
+    PersonalAccessToken = "2345678dsfghjk4567890"
+}
+
+Configure-GitCmdLine @GitAuthParams
+```
+
+### Scenario 2
+
+```powershell
+$TestGitAuthParams = @{
+    GitHubUserName = "pldmgg"
+    AuthMethod = "https"
+    PersonalAccessToken = "2345678dsfghjk4567890"
+}
+
+Test-GitAuthentication @TestGitAuthParams
+```
+
+### Scenario 3
+
+```powershell
+$CloneRepoParams = @{
+    GitRepoParentDirectory = "$HOME\Documents\GitRepos"
+    GitHubUserName = "pldmgg"
+    GitHubEmail = "pldmgg@mykolab.com"
+    PersonalAccessToken = "2345678dsfghjk4567890"
+    CloneAllRepos = $True
+}
+
+Clone-GitRepo @CloneRepoParams
 ```
 
 ## Notes
 
-* PSGallery: 
+* PSGallery: https://www.powershellgallery.com/packages/GitEnv

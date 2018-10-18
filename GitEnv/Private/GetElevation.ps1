@@ -1,22 +1,34 @@
-[System.Collections.ArrayList]$script:FunctionsForSBUse = @(
-    ${Function:GetElevation}.Ast.Extent.Text
-    ${Function:NewUniqueString}.Ast.Extent.Text
-    ${Function:Clone-GitRepo}.Ast.Extent.Text
-    ${Function:Configure-GitCmdLine}.Ast.Extent.Text
-    ${Function:Install-GitCmdLine}.Ast.Extent.Text
-    ${Function:Install-GitDesktop}.Ast.Extent.Text
-    ${Function:Manage-StoredCredentials}.Ast.Extent.Text
-    ${Function:New-GitRepo}.Ast.Extent.Text
-    ${Function:Test-GitAuthentication}.Ast.Extent.Text
-)
+function GetElevation {
+    if ($PSVersionTable.PSEdition -eq "Desktop" -or $PSVersionTable.Platform -eq "Win32NT" -or $PSVersionTable.PSVersion.Major -le 5) {
+        [System.Security.Principal.WindowsPrincipal]$currentPrincipal = New-Object System.Security.Principal.WindowsPrincipal(
+            [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        )
 
+        [System.Security.Principal.WindowsBuiltInRole]$administratorsRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
 
+        if($currentPrincipal.IsInRole($administratorsRole)) {
+            return $true
+        }
+        else {
+            return $false
+        }
+    }
+    
+    if ($PSVersionTable.Platform -eq "Unix") {
+        if ($(whoami) -eq "root") {
+            return $true
+        }
+        else {
+            return $false
+        }
+    }
+}
 
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdgFfkyXJ+PiMs12zUI43dsuD
-# 1dKgggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3DYHmsoT5iKf206R1hwQpKQ2
+# jbygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -73,11 +85,11 @@
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFI/6XBvQkQzrCtUI
-# bjeRIdBwfgI/MA0GCSqGSIb3DQEBAQUABIIBAF1cSWRea5YLf8DyAuGcb3J8F7d6
-# 6uGovWJ/T6UsPY4zIMnNt49oMVnbFmxgD0Hmw1ZC2XBXthM+767zldgydegx8MFH
-# rfnt/L9J4/PLsvN0CRqi4sm9o4vNgdG4QmKO4ehFztmOHHtptCIwaG13fWGELfZn
-# JfD6Fi4ci7i2EHvvPZbv8QiIY+WMMC7Eb8lKW+oZWsDHLyd9RrJChxqiEqeI738S
-# OaREGce1NMEG7i6ACVbEIkdJCBTjSYllqxvw3y47CkMvHHBc3pefXcFC/n8e+T1r
-# sVvAbCr6AFEN9C4eRrniLoryJf1x4N7xF6y4eiKKTZSC+hGNbSmEym5XhVY=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKOfk0/zgQLM/zmO
+# wfqbtI19vuDEMA0GCSqGSIb3DQEBAQUABIIBADnN8O0EipLPvoBARImyjpXBuqmg
+# iLCuI0JDry+hInob9V9xnkQHSEOfDmDZsN4LodAqSPM5SmcAwej33jRU/VW4nivl
+# 5zC09dZNqi16sPPS15XMtGeySkrVTqVSPI0QpI0f80SQKn1k4Eb0Tud3+zWk8W8i
+# NU5l5NecDVRFngol0qdIIgOzMm2F1CfGnfWvVKVwfRdTgXaDWZ1YnDbQjyKOhKJ4
+# mAPWnIwNzQylzf5K1xOmlSGPAHuFkXo5izFDjH1Ns2g+JRosuSvUw+ZZux/MFSe+
+# 9XydaJ/VMTtT+SeurmFeL6yYqhjEYJ1oWiqp5xzaKjBKFI+y6JRvFNANMFQ=
 # SIG # End signature block
