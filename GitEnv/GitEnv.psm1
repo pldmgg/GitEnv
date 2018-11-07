@@ -278,7 +278,7 @@ function Clone-GitRepo {
         if ($CloningOneOrMorePrivateRepos) {
             # Check the Windows Credential Store to see if we have appropriate credentials available already
             # If not, add them to the Windows Credential Store
-            $FindCachedCredentials = Manage-WinCreds -ShoCred | Where-Object {
+            $FindCachedCredentials = Manage-StoredCredentials -ShoCred | Where-Object {
                 $_.UserName -eq $GitHubUserName -and
                 $_.Target -match "git"
             }
@@ -343,16 +343,16 @@ function Clone-GitRepo {
                     Target  = "git:https://$PersonalAccessToken@github.com"
                     User    = $PersonalAccessToken
                     Pass    = 'x-oauth-basic'
-                    Comment = "Saved By Manage-WinCreds.ps1"
+                    Comment = "Saved By Manage-StoredCredentials"
                 }
                 #>
                 $ManageStoredCredsParams = @{
                     Target  = "git:https://$GitHubUserName@github.com"
                     User    = $GitHubUserName
                     Pass    = $PersonalAccessToken
-                    Comment = "Saved By Manage-WinCreds.ps1"
+                    Comment = "Saved By Manage-StoredCredentials"
                 }
-                Manage-WinCreds -AddCred @ManageStoredCredsParams
+                Manage-StoredCredentials -AddCred @ManageStoredCredsParams
             }
         }
 
@@ -721,16 +721,16 @@ function Configure-GitCmdLine {
             Target  = "git:https://$PersonalAccessToken@github.com"
             User    = $PersonalAccessToken
             Pass    = 'x-oauth-basic'
-            Comment = "Saved By Manage-WinCreds.ps1"
+            Comment = "Saved By Manage-StoredCredentials"
         }
         #>
         $ManageStoredCredsParams = @{
             Target  = "git:https://$GitHubUserName@github.com"
             User    = $GitHubUserName
             Pass    = $PersonalAccessTokenPT
-            Comment = "Saved By Manage-WinCreds.ps1"
+            Comment = "Saved By Manage-StoredCredentials"
         }
-        $null = Manage-WinCreds -AddCred @ManageStoredCredsParams
+        $null = Manage-StoredCredentials -AddCred @ManageStoredCredsParams
 
         # Test https OAuth2 authentication
         # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
@@ -2363,8 +2363,8 @@ if ($PSVersionTable.Platform -eq "Win32NT" -and $PSVersionTable.PSEdition -eq "C
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbKvPoQ1CWIxfGvXtGmpqbIqn
-# P5ugggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUj+YRL2dI6o2AUWaL/DVkmWdt
+# QNagggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -2421,11 +2421,11 @@ if ($PSVersionTable.Platform -eq "Win32NT" -and $PSVersionTable.PSEdition -eq "C
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFFpbL2RPyVpAsAbd
-# X6vNTaf7M7bOMA0GCSqGSIb3DQEBAQUABIIBAKutG+pm3DrBGp2GZuoF9bjLLMlM
-# Ww7Az8xyG/43qL7U/jMoTUKmXc6eWN+PbYF3fzMwV5I/K+JpD74fWf6eng56fuVX
-# G/OMIJDqhKeJrXTwoSwhc7GH57/362rQtQ+HJT6U3v6upNR0UbIXAgGpiCDm+o8N
-# HAL0Hk2kv+YluEglQ5QNoxqe7XnwjWFKNEfOLwjAgXpUrDOKCaybw+iltiiWe5Fu
-# CEXB5NMbSan3vDMpJn+i+thMxjxUm1SSqxi8irf+UmXGajKSCkEKmBxoRs80/4gx
-# W5YuW9BQmAfgttkI0R+aAcVsEhUtGP2cT5/BzXpGikq2adPrEQD+/2qYcf0=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCTanDmApCoO8x7B
+# L8yxESQJgnSYMA0GCSqGSIb3DQEBAQUABIIBAB/hP1Moy99SSTftB7E0UxntPzZR
+# NyuGopjgppPhrFLu+jhQpbRIzj0vHIT7RJsiwFt19RlJFF8wNXfTvxtbvMLMt4ZF
+# 2KoryFqCwKm+vBDTnsYRfKCHjg1lvj5HEz5NC4S/vJLRjYEUqQ17mJg42W8b2Q8C
+# QnkQEqzESvjwCRtZY1v3pwz2DUpXGlqWlvdCyzNFlYscNTtcuP6uQhZfN3wZw4qG
+# vjMqrrLZ/cVbplw2v6rV2NTYX6ftihl2NnMT5/f8ySW0fUAm7TyIt1ctwUyDHcUY
+# ZehrshNHS8TXkssvsjJ4Rc0H8pNFVcdpwI9P3AVVl2B7CMW32F6NAe+rHcA=
 # SIG # End signature block

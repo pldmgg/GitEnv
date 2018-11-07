@@ -192,7 +192,7 @@ function Clone-GitRepo {
         if ($CloningOneOrMorePrivateRepos) {
             # Check the Windows Credential Store to see if we have appropriate credentials available already
             # If not, add them to the Windows Credential Store
-            $FindCachedCredentials = Manage-WinCreds -ShoCred | Where-Object {
+            $FindCachedCredentials = Manage-StoredCredentials -ShoCred | Where-Object {
                 $_.UserName -eq $GitHubUserName -and
                 $_.Target -match "git"
             }
@@ -257,16 +257,16 @@ function Clone-GitRepo {
                     Target  = "git:https://$PersonalAccessToken@github.com"
                     User    = $PersonalAccessToken
                     Pass    = 'x-oauth-basic'
-                    Comment = "Saved By Manage-WinCreds.ps1"
+                    Comment = "Saved By Manage-StoredCredentials"
                 }
                 #>
                 $ManageStoredCredsParams = @{
                     Target  = "git:https://$GitHubUserName@github.com"
                     User    = $GitHubUserName
                     Pass    = $PersonalAccessToken
-                    Comment = "Saved By Manage-WinCreds.ps1"
+                    Comment = "Saved By Manage-StoredCredentials"
                 }
-                Manage-WinCreds -AddCred @ManageStoredCredsParams
+                Manage-StoredCredentials -AddCred @ManageStoredCredsParams
             }
         }
 
@@ -476,8 +476,8 @@ function Clone-GitRepo {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIfJnAaLduS8CoVJDNu5fNdz7
-# Iiegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUFdtI5PrFeJto13NQygG8tlWq
+# IEegggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -534,11 +534,11 @@ function Clone-GitRepo {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFCwkyOVphatMG3Bm
-# nzP15YxrIr/8MA0GCSqGSIb3DQEBAQUABIIBAHO0WG6iGumMXA7kPUD3GPk0yQZO
-# zA2e64MzOy5WVw3UHfQiC1YHD5HDg0RxGexVTgr3s1xSRqKNBMGZiUJlfWd/rWH5
-# eHL1/xEtfLfyjgI6KmhX9uVVZkin3Tz6B/ltXi9TBPariK0UCwFXtTfrCq9F0yVr
-# j/veuQfXfg1TcAC4HwQv4tPYPn+Y5+o76h9zf4HoODh4IuZzn7brTVVxV8Vbj1VO
-# sZOfRhKyK84JgG7HNfZRV0wzNN1UVIHOA7dXyjUmu/VtIEwQzfwjSYvbKzY+ib1x
-# jfpjdi/oBzuO8sbCnLM1YxVLSGGZ8S9+gFumiLNfe5G62PMBq4Hd94HKPHg=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFKtW6mKQEBrGQUtV
+# l1fhl174hU1LMA0GCSqGSIb3DQEBAQUABIIBALEpERj3aoav9qx4ztDdj+2+uslk
+# 2jUx1FU3qc3M69b6JvFPxtNfG+9LT/csSbonM3Jk8Ldt5Xdhd5Z/bR7T8GdBlhQI
+# LCM/hLu9+5Sbhu7NciZOcd0BVw3Zj3WJEUhvHjl3t7/n2a3VGLuRUhHiRbwhGKBZ
+# eXcJEBI6W4LFSyIpz39wWZZYFLpbNL4B9+1aObVpZrTqhRaj+oP/S47X7/QjlRH2
+# kGGgmVpVJZ7wfD5AOJ5KYGYaeh6ri2EUkDO3X+5tbDMmU8rEys28G1QtZJB+ifEa
+# rdt93bjMcBzrbzXIewtY+TGk1trzjZbUAqOwzpI9JY01uD3icdNMW7MU0Z4=
 # SIG # End signature block

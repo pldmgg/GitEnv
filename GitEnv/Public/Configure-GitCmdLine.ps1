@@ -159,16 +159,16 @@ function Configure-GitCmdLine {
             Target  = "git:https://$PersonalAccessToken@github.com"
             User    = $PersonalAccessToken
             Pass    = 'x-oauth-basic'
-            Comment = "Saved By Manage-WinCreds.ps1"
+            Comment = "Saved By Manage-StoredCredentials"
         }
         #>
         $ManageStoredCredsParams = @{
             Target  = "git:https://$GitHubUserName@github.com"
             User    = $GitHubUserName
             Pass    = $PersonalAccessTokenPT
-            Comment = "Saved By Manage-WinCreds.ps1"
+            Comment = "Saved By Manage-StoredCredentials"
         }
-        $null = Manage-WinCreds -AddCred @ManageStoredCredsParams
+        $null = Manage-StoredCredentials -AddCred @ManageStoredCredsParams
 
         # Test https OAuth2 authentication
         # More info here: https://channel9.msdn.com/Blogs/trevor-powershell/Automating-the-GitHub-REST-API-Using-PowerShell
@@ -335,8 +335,8 @@ function Configure-GitCmdLine {
 # SIG # Begin signature block
 # MIIMiAYJKoZIhvcNAQcCoIIMeTCCDHUCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUGcx2mtEMEYRqKb4YWM8V3LS+
-# vm2gggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUtN8hHVmwW/QYavm1cjTyd87
+# 3Wygggn9MIIEJjCCAw6gAwIBAgITawAAAB/Nnq77QGja+wAAAAAAHzANBgkqhkiG
 # 9w0BAQsFADAwMQwwCgYDVQQGEwNMQUIxDTALBgNVBAoTBFpFUk8xETAPBgNVBAMT
 # CFplcm9EQzAxMB4XDTE3MDkyMDIxMDM1OFoXDTE5MDkyMDIxMTM1OFowPTETMBEG
 # CgmSJomT8ixkARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMT
@@ -393,11 +393,11 @@ function Configure-GitCmdLine {
 # ARkWA0xBQjEUMBIGCgmSJomT8ixkARkWBFpFUk8xEDAOBgNVBAMTB1plcm9TQ0EC
 # E1gAAAH5oOvjAv3166MAAQAAAfkwCQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwx
 # CjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGC
-# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFDPXDkSnj4y71l+c
-# B7lbYlwPEBYtMA0GCSqGSIb3DQEBAQUABIIBAA/w8i9o7As0Y6PIO/jEm0D3yfOP
-# epPLOW6O0y49+m3cbMcH6jmYkOi7gch35f1jT4Bh3RTAwM231HBEMb/CfsIx/zuG
-# t0mQynvTvDwS68rq5fxDC0+3uwt8/8z8wh4VfcpFaen2Rx5EimkeGrlygAaoCree
-# 5/icCbL8r9lpBN1NmXe0gQkFt9fS3egWIMbNjwM+jHeUQkby287DQ9MKiWev6M9a
-# 7eDPof6sbZO/I2hSSZvNbpgx0rS1JpyL+ic6JtQWlz6fvCgRfgcfEzf2ObAMxxlN
-# GTThplZnIzhDDL6ftAYmhjsgTKZZW5ZwaewijYwNr7MBvBHcmdTUgAWp9nY=
+# NwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYEFB9nvEl9ARigHr7K
+# VNBDftprDjtNMA0GCSqGSIb3DQEBAQUABIIBAK7qO5/TwsPfnj/UahAK6eOs2kgy
+# J9z0QQ6DVLvPaYRk8jicg+PJjozLl1/aIrYgNNXmwnuogH4/n4OKaafbScbMMSqM
+# zt3PNIOcouYfP5CODD/IGdDvBwqExapeXw9vEoWqfYGkQGYT0JG9s/IgQluNHc2e
+# ytET3mqPy0KTwN5JiGYAZzKBUkyd5jW6p0S/MhK9RkBTEtueULU/H2+98TxwTL4/
+# o82hqZVzKc353Dw/w286JGsDh2TWh69oCRwCqmmRgR7VH+Aoj0KnY59AOAFyats2
+# r4DFwL/XTleIC/NRZjoq8qdrc3JP9feJjIau1UJL/RGcM1GyG47BZHB602M=
 # SIG # End signature block

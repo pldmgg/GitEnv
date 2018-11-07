@@ -3,7 +3,7 @@
         Install the Git Desktop GUI app.
 
     .DESCRIPTION
-        See Synopsis.
+        See Synopsis
     
     .EXAMPLE
         # Launch PowerShell and...
